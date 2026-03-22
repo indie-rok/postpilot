@@ -177,23 +177,23 @@ def _parse_llm_json(raw: str) -> dict[str, Any]:
         return {}
 
 
-def classify_comments(comments: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    if not comments:
-        return []
+CLASSIFY_BATCH_SIZE = 5
 
+
+def _classify_batch(batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
     comment_block = "\n".join(
-        f"[ID={c['comment_id']}] [{c.get('archetype', 'User')}] {c['content']}"
-        for c in comments
+        f"[ID={c['comment_id']}] [{c.get('archetype', 'User')}] {c['content'][:300]}"
+        for c in batch
     )
 
-    prompt = f"""Classify each Reddit comment below. Return ONLY valid JSON matching this schema exactly:
+    prompt = f"""Classify each Reddit comment. Return ONLY valid JSON:
 
 {{
   "comments": [
     {{
       "comment_id": <int>,
       "sentiment": "positive" | "negative" | "neutral",
-      "topics": [<short topic strings, max 3>],
+      "topics": ["<descriptive 3-6 word phrase>"],
       "is_objection": true | false,
       "is_feature_request": true | false,
       "feature_requested": "<feature name>" | null
@@ -201,12 +201,9 @@ def classify_comments(comments: list[dict[str, Any]]) -> list[dict[str, Any]]:
   ]
 }}
 
-Rules:
-- sentiment: based on tone toward the product/post
-- topics: 1-3 short labels (e.g. "pricing", "privacy", "competition", "validation")
-- is_objection: true if the comment raises a concern or challenge
-- is_feature_request: true ONLY if the comment explicitly asks for a missing feature
-- feature_requested: the specific feature name, or null
+IMPORTANT: topics must be descriptive phrases, NOT single words.
+Good: "burnout radar approach praised", "pricing too high for startups"
+Bad: "pricing", "burnout", "privacy"
 
 Comments:
 {comment_block}"""
@@ -214,6 +211,18 @@ Comments:
     raw = _ask_llm(prompt)
     parsed = _parse_llm_json(raw)
     return parsed.get("comments", [])
+
+
+def classify_comments(comments: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if not comments:
+        return []
+
+    all_results: list[dict[str, Any]] = []
+    for i in range(0, len(comments), CLASSIFY_BATCH_SIZE):
+        batch = comments[i : i + CLASSIFY_BATCH_SIZE]
+        all_results.extend(_classify_batch(batch))
+
+    return all_results
 
 
 def compute_grade(
@@ -257,7 +266,14 @@ def build_scorecard(
     participation: dict[str, dict[str, Any]],
     classifications: list[dict[str, Any]],
     comment_archetypes: dict[int, str],
+    comments: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
+    comment_text_by_id: dict[int, str] = {}
+    comment_author_by_id: dict[int, str] = {}
+    if comments:
+        for c in comments:
+            comment_text_by_id[c["comment_id"]] = c["content"]
+            comment_author_by_id[c["comment_id"]] = c.get("author", "agent")
     matrix: dict[str, dict[str, int]] = {}
     for arch, data in participation.items():
         matrix[arch] = {
@@ -294,26 +310,42 @@ def build_scorecard(
         themes.append({"name": topic, "count": count, "sentiment": dominant})
 
     positive_topics: dict[str, int] = {}
+    positive_quotes: dict[str, list[str]] = {}
     for c in classifications:
         if c.get("sentiment") == "positive":
+            cid = c.get("comment_id", -1)
+            quote = comment_text_by_id.get(cid, "")
+            author = comment_author_by_id.get(cid, "agent")
             for topic in c.get("topics", []):
                 t = topic.lower().strip()
                 positive_topics[t] = positive_topics.get(t, 0) + 1
+                if quote and t not in positive_quotes:
+                    positive_quotes[t] = []
+                if quote:
+                    positive_quotes[t].append(f"{author}: {quote}")
     strengths = [
-        {"name": t, "count": n}
+        {"name": t, "count": n, "quotes": positive_quotes.get(t, [])[:2]}
         for t, n in sorted(positive_topics.items(), key=lambda x: x[1], reverse=True)[
             :3
         ]
     ]
 
     objection_topics: dict[str, int] = {}
+    objection_quotes: dict[str, list[str]] = {}
     for c in classifications:
         if c.get("is_objection"):
+            cid = c.get("comment_id", -1)
+            quote = comment_text_by_id.get(cid, "")
+            author = comment_author_by_id.get(cid, "agent")
             for topic in c.get("topics", []):
                 t = topic.lower().strip()
                 objection_topics[t] = objection_topics.get(t, 0) + 1
+                if quote and t not in objection_quotes:
+                    objection_quotes[t] = []
+                if quote:
+                    objection_quotes[t].append(f"{author}: {quote}")
     problems = [
-        {"name": t, "count": n}
+        {"name": t, "count": n, "quotes": objection_quotes.get(t, [])[:2]}
         for t, n in sorted(objection_topics.items(), key=lambda x: x[1], reverse=True)[
             :3
         ]
@@ -400,6 +432,19 @@ def fetch_comments_with_archetypes(
     return comments, comment_archetypes
 
 
+def _load_archetype_bios(profiles_path: str) -> dict[str, str]:
+    with open(profiles_path) as f:
+        profiles = json.load(f)
+
+    bios: dict[str, str] = {}
+    for p in profiles:
+        archetype = _archetype_for(p["username"])
+        bio = p.get("bio") or p.get("user_profile", "")
+        if bio and archetype not in bios:
+            bios[archetype] = bio[:200]
+    return bios
+
+
 def generate_scorecard(db_path: str, profiles_path: str) -> dict[str, Any]:
     metrics = query_engagement_metrics(db_path)
     participation = query_archetype_participation(db_path, profiles_path)
@@ -407,4 +452,8 @@ def generate_scorecard(db_path: str, profiles_path: str) -> dict[str, Any]:
         db_path, profiles_path
     )
     classifications = classify_comments(comments)
-    return build_scorecard(metrics, participation, classifications, comment_archetypes)
+    scorecard = build_scorecard(
+        metrics, participation, classifications, comment_archetypes, comments
+    )
+    scorecard["archetype_bios"] = _load_archetype_bios(profiles_path)
+    return scorecard

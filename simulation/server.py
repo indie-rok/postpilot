@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 import scripts.analyze_and_rewrite as analyze_module
 import scripts.generate_html as generate_html_module
+import scripts.generate_scorecard as scorecard_module
 
 
 JsonPrimitive = str | int | float | bool | None
@@ -67,10 +68,19 @@ THREAD_TEMPLATE: str = cast(str, generate_html_module.TEMPLATE)
 _ = load_dotenv(BASE_DIR / ".env")
 
 
+class LLMConfig(BaseModel):
+    llm_api_key: str = ""
+    llm_base_url: str = ""
+    llm_model: str = ""
+
+
 class SimulateRequest(BaseModel):
     agent_count: int = Field(ge=2, le=18)
     total_hours: int = Field(ge=1, le=72)
     post_content: str = Field(min_length=1)
+    llm_api_key: str = ""
+    llm_base_url: str = ""
+    llm_model: str = ""
 
 
 class SimulationCoordinator:
@@ -79,6 +89,7 @@ class SimulationCoordinator:
         self._clients_lock: asyncio.Lock = asyncio.Lock()
         self._state_lock: asyncio.Lock = asyncio.Lock()
         self._current_task: asyncio.Task[None] | None = None
+        self._llm_config: LLMConfig = LLMConfig()
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
@@ -112,6 +123,11 @@ class SimulationCoordinator:
                     status_code=409,
                     detail="A simulation is already running. Wait for completion.",
                 )
+            self._llm_config = LLMConfig(
+                llm_api_key=request.llm_api_key,
+                llm_base_url=request.llm_base_url,
+                llm_model=request.llm_model,
+            )
             self._current_task = asyncio.create_task(self._run(request))
 
         return RUN_TAG
@@ -137,6 +153,14 @@ class SimulationCoordinator:
                 }
             )
 
+            run_env = os.environ.copy()
+            if request.llm_api_key:
+                run_env["LLM_API_KEY"] = request.llm_api_key
+            if request.llm_base_url:
+                run_env["LLM_BASE_URL"] = request.llm_base_url
+            if request.llm_model:
+                run_env["LLM_MODEL"] = request.llm_model
+
             process = await asyncio.create_subprocess_exec(
                 sys.executable,
                 "-c",
@@ -152,7 +176,7 @@ class SimulationCoordinator:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 cwd=str(BASE_DIR),
-                env=os.environ.copy(),
+                env=run_env,
             )
 
             assert process.stdout is not None
@@ -339,6 +363,28 @@ async def get_results(tag: str):
     return JSONResponse(content=data)
 
 
+def _apply_llm_config(config: LLMConfig) -> dict[str, str]:
+    originals: dict[str, str] = {}
+    mapping = {
+        "LLM_API_KEY": config.llm_api_key,
+        "LLM_BASE_URL": config.llm_base_url,
+        "LLM_MODEL": config.llm_model,
+    }
+    for key, value in mapping.items():
+        if value:
+            originals[key] = os.environ.get(key, "")
+            os.environ[key] = value
+    return originals
+
+
+def _restore_env(originals: dict[str, str]) -> None:
+    for key, value in originals.items():
+        if value:
+            os.environ[key] = value
+        else:
+            os.environ.pop(key, None)
+
+
 @app.post("/api/analyze/{tag}")
 async def analyze_tag(tag: str) -> dict[str, str]:
     db_path = RESULTS_DIR / f"{tag}.db"
@@ -347,14 +393,63 @@ async def analyze_tag(tag: str) -> dict[str, str]:
             status_code=404, detail=f"Results not found for tag '{tag}'"
         )
 
-    comments = await asyncio.to_thread(fetch_comments, str(db_path))
-    if not comments:
-        raise HTTPException(status_code=400, detail="No comments found to analyze")
-    original_post = await asyncio.to_thread(fetch_original_post, str(db_path))
-    analysis = await asyncio.to_thread(analyze_comments, comments)
-    improved_post = await asyncio.to_thread(rewrite_post, original_post, analysis)
+    saved = _apply_llm_config(coordinator._llm_config)
+    try:
+        comments = await asyncio.to_thread(fetch_comments, str(db_path))
+        if not comments:
+            raise HTTPException(status_code=400, detail="No comments found to analyze")
+        original_post = await asyncio.to_thread(fetch_original_post, str(db_path))
+        analysis = await asyncio.to_thread(analyze_comments, comments)
+        improved_post = await asyncio.to_thread(rewrite_post, original_post, analysis)
+    finally:
+        _restore_env(saved)
 
     return {"analysis": analysis, "improved_post": improved_post}
+
+
+@app.post("/api/scorecard/{tag}")
+async def get_scorecard(tag: str):
+    db_path = RESULTS_DIR / f"{tag}.db"
+    if not db_path.exists():
+        raise HTTPException(
+            status_code=404, detail=f"Results not found for tag '{tag}'"
+        )
+
+    profiles_path = resolve_profiles_for_tag(tag)
+    saved = _apply_llm_config(coordinator._llm_config)
+    try:
+        result = await asyncio.to_thread(
+            scorecard_module.generate_scorecard, str(db_path), str(profiles_path)
+        )
+    finally:
+        _restore_env(saved)
+
+    return JSONResponse(content=result)
+
+
+@app.post("/api/rewrite/{tag}")
+async def rewrite_post_endpoint(tag: str) -> dict[str, str]:
+    db_path = RESULTS_DIR / f"{tag}.db"
+    if not db_path.exists():
+        raise HTTPException(
+            status_code=404, detail=f"Results not found for tag '{tag}'"
+        )
+
+    saved = _apply_llm_config(coordinator._llm_config)
+    try:
+        original_post = await asyncio.to_thread(fetch_original_post, str(db_path))
+        profiles_path = resolve_profiles_for_tag(tag)
+        scorecard = await asyncio.to_thread(
+            scorecard_module.generate_scorecard, str(db_path), str(profiles_path)
+        )
+        analysis_context = json.dumps(scorecard, indent=2, default=str)
+        improved_post = await asyncio.to_thread(
+            rewrite_post, original_post, analysis_context
+        )
+    finally:
+        _restore_env(saved)
+
+    return {"improved_post": improved_post}
 
 
 @app.get("/api/thread/{tag}", response_class=HTMLResponse)

@@ -82,19 +82,30 @@
 
     .calc-info { font-size: 12px; color: var(--muted); text-align: center; margin-bottom: 16px; }
 
-    textarea {
+    textarea, input[type=text], input[type=password] {
       width: 100%;
-      height: 250px;
       background-color: var(--bg);
       color: var(--text);
       border: 1px solid var(--border);
       border-radius: 4px;
       padding: 12px;
       font-size: 14px;
-      resize: vertical;
-      margin-bottom: 16px;
     }
-    textarea:focus { outline: none; border-color: var(--brand); }
+    textarea { height: 250px; resize: vertical; margin-bottom: 16px; }
+    input[type=text], input[type=password] { margin-bottom: 0; }
+    textarea:focus, input[type=text]:focus, input[type=password]:focus { outline: none; border-color: var(--brand); }
+
+    details { margin-bottom: 20px; }
+    details summary {
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 12px;
+      user-select: none;
+    }
+    details summary:hover { color: var(--text); }
+    .small-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 
     button {
       width: 100%;
@@ -182,6 +193,101 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    .scorecard-header {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 20px;
+      background: var(--bg);
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .grade-circle {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+    .grade-circle.green { background: #2e7d32; }
+    .grade-circle.yellow { background: #f9a825; color: #000; }
+    .grade-circle.red { background: #c62828; }
+    .grade-detail { flex: 1; }
+    .grade-score { font-size: 20px; font-weight: 700; color: #fff; }
+    .grade-summary { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+    .scorecard-section {
+      background: var(--bg);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .scorecard-section h3 { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 12px; }
+
+    .sc-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 600px) { .sc-two-col { grid-template-columns: 1fr; } }
+
+    .matrix-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .matrix-table th { text-align: center; padding: 8px; color: var(--muted); font-weight: 600; }
+    .matrix-table th:first-child { text-align: left; }
+    .matrix-table td { text-align: center; padding: 8px; border-top: 1px solid var(--border); }
+    .matrix-table td:first-child { text-align: left; font-weight: 600; color: var(--text); }
+    .matrix-table td.silent { color: var(--muted); font-style: italic; }
+
+    .theme-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 13px; }
+    .theme-bar .bar { height: 8px; border-radius: 4px; min-width: 20px; }
+    .theme-bar .bar.positive { background: var(--success); }
+    .theme-bar .bar.negative { background: var(--error); }
+    .theme-bar .bar.neutral { background: var(--muted); }
+    .theme-bar .count { color: var(--muted); font-size: 12px; min-width: 24px; }
+
+    .scorecard-section ul { list-style: none; }
+    .scorecard-section li { font-size: 13px; padding: 0; color: var(--text); }
+    .scorecard-section li .freq { color: var(--muted); margin-left: 4px; }
+
+    .sc-item { margin-bottom: 4px; }
+    .sc-item summary { cursor: pointer; padding: 6px 0; user-select: none; }
+    .sc-item summary:hover { color: #fff; }
+    .sc-item summary::marker { font-size: 10px; }
+    .sc-quote {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 6px 12px;
+      margin: 2px 0 8px 16px;
+      border-left: 2px solid var(--border);
+      line-height: 1.5;
+    }
+    .sc-quote-author { color: var(--brand); font-weight: 600; }
+
+    [data-tip] { position: relative; cursor: help; border-bottom: 1px dotted var(--muted); }
+    [data-tip]:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 6px);
+      background: #1a1a2e;
+      color: #d1d5db;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 400;
+      line-height: 1.5;
+      white-space: normal;
+      width: max-content;
+      max-width: 400px;
+      z-index: 10;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      pointer-events: none;
+    }
+    .matrix-table th[data-tip] { border-bottom: none; cursor: help; }
+    .matrix-table th[data-tip]:hover::after { left: 50%; transform: translateX(-50%); }
+
   </style>
 </head>
 <body>
@@ -213,6 +319,22 @@
       <div class="calc-info" id="calc-info">
         8 rounds · ~40 LLM calls · ~2 minutes
       </div>
+
+      <details>
+        <summary>⚙ LLM Settings</summary>
+        <div class="form-group">
+          <div class="small-label">API Key</div>
+          <input type="password" id="api-key" placeholder="Falls back to .env if empty">
+        </div>
+        <div class="form-group">
+          <div class="small-label">Endpoint</div>
+          <input type="text" id="base-url" value="https://openrouter.ai/api/v1">
+        </div>
+        <div class="form-group">
+          <div class="small-label">Model</div>
+          <input type="text" id="llm-model" value="arcee-ai/trinity-mini:free">
+        </div>
+      </details>
 
       <textarea id="post-content">We built a tool that predicts employee burnout before it turns into a resignation. Here's what we learned from 14 beta companies.
 
@@ -270,17 +392,56 @@ Questions:
           <div id="thread-container"></div>
         </div>
 
-        <!-- Analysis Tab -->
+        <!-- Scorecard Tab -->
         <div id="tab-analysis" class="tab-content">
-          <button id="analyze-btn" style="margin-bottom: 20px;">🔍 Analyze & Generate Improved Post</button>
-          
-          <div id="analysis-content" class="hidden">
-            <h2>Analysis Report</h2>
-            <div id="analysis-markdown" class="analysis-markdown"></div>
-            
-            <h2>Improved Post</h2>
-            <textarea id="improved-post" readonly style="height: 150px; background: var(--bg); color: var(--text);"></textarea>
-            <button id="resimulate-btn" style="margin-top: 12px; background: var(--border);">🔄 Re-simulate with this post</button>
+          <button id="analyze-btn" style="margin-bottom: 20px;">📊 Generate Scorecard</button>
+
+          <div id="scorecard" class="hidden">
+            <div class="scorecard-header">
+              <div class="grade-circle" id="sc-grade">?</div>
+              <div class="grade-detail">
+                <div class="grade-score" id="sc-score">0/10</div>
+                <div class="grade-summary" id="sc-summary">Run analysis to see results</div>
+              </div>
+            </div>
+
+            <div class="scorecard-section">
+              <h3>Archetype Breakdown</h3>
+              <table class="matrix-table" id="sc-matrix">
+                <thead><tr>
+                  <th></th>
+                  <th data-tip="Positive: agents who commented with supportive or encouraging sentiment">👍</th>
+                  <th data-tip="Neutral: agents who commented without strong positive or negative sentiment">😐</th>
+                  <th data-tip="Negative: agents who raised concerns, objections, or skepticism">👎</th>
+                  <th data-tip="Silent: agents who saw the post but chose not to engage at all">🔇</th>
+                </tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+
+            <div class="scorecard-section">
+              <h3><span data-tip="Aspects of your post that agents praised most often. Higher count = stronger signal that this resonates with your audience.">✅ Strengths</span></h3>
+              <ul id="sc-strengths"></ul>
+            </div>
+
+            <div class="scorecard-section">
+              <h3><span data-tip="Concerns and objections raised by agents. Higher count = more agents flagged this as a problem you should address.">❌ Problems</span></h3>
+              <ul id="sc-problems"></ul>
+            </div>
+
+            <div class="scorecard-section hidden" id="sc-features-section">
+              <h3>🔍 Missing Features</h3>
+              <ul id="sc-features"></ul>
+            </div>
+
+            <div class="scorecard-section" style="margin-top: 24px;">
+              <button id="rewrite-btn">🔄 Rewrite Post Based on Feedback</button>
+              <div id="rewrite-result" class="hidden" style="margin-top: 16px;">
+                <h3>Improved Post</h3>
+                <textarea id="improved-post" readonly style="height: 200px;"></textarea>
+                <button id="resimulate-btn" style="margin-top: 12px; background: var(--border);">🔄 Re-simulate with this post</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -296,6 +457,9 @@ Questions:
     const hoursVal = document.getElementById('hours-val');
     const calcInfo = document.getElementById('calc-info');
     const postContent = document.getElementById('post-content');
+    const apiKeyInput = document.getElementById('api-key');
+    const baseUrlInput = document.getElementById('base-url');
+    const llmModelInput = document.getElementById('llm-model');
     const launchBtn = document.getElementById('launch-btn');
     
     const progressPanel = document.getElementById('progress-panel');
@@ -309,8 +473,9 @@ Questions:
     
     const threadContainer = document.getElementById('thread-container');
     const analyzeBtn = document.getElementById('analyze-btn');
-    const analysisContent = document.getElementById('analysis-content');
-    const analysisMarkdown = document.getElementById('analysis-markdown');
+    const scorecardEl = document.getElementById('scorecard');
+    const rewriteBtn = document.getElementById('rewrite-btn');
+    const rewriteResult = document.getElementById('rewrite-result');
     const improvedPost = document.getElementById('improved-post');
     const resimulateBtn = document.getElementById('resimulate-btn');
 
@@ -425,10 +590,16 @@ Questions:
             agent_count: parseInt(agentsSlider.value),
             total_hours: parseInt(hoursSlider.value),
             post_content: content,
+            llm_api_key: apiKeyInput.value.trim(),
+            llm_base_url: baseUrlInput.value.trim(),
+            llm_model: llmModelInput.value.trim(),
           })
         });
         
-        if (!response.ok) throw new Error("Failed to start simulation");
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.detail || `Server error ${response.status}`);
+        }
       } catch (err) {
         appendLog(`Error: ${err.message}`);
         resetLaunchButton();
@@ -520,41 +691,132 @@ Questions:
       });
     }
 
-    // Analysis
     analyzeBtn.addEventListener('click', async () => {
       analyzeBtn.disabled = true;
       analyzeBtn.innerHTML = '<span class="spinner"></span> Analyzing...';
-      
+
       try {
-        const data = await fetch('/api/analyze/run', {method: 'POST'}).then(r => r.json());
-        
+        const data = await fetch('/api/scorecard/run', {method: 'POST'}).then(r => r.json());
         analyzeBtn.style.display = 'none';
-        analysisContent.classList.remove('hidden');
-        
-        analysisMarkdown.innerHTML = renderSimpleMarkdown(data.analysis || 'No analysis provided.');
-        improvedPost.value = data.improved_post || '';
-        
+        scorecardEl.classList.remove('hidden');
+        renderScorecard(data);
       } catch (err) {
         analyzeBtn.disabled = false;
-        analyzeBtn.textContent = '🔍 Analyze & Generate Improved Post';
+        analyzeBtn.textContent = '📊 Generate Scorecard';
         alert('Analysis failed: ' + err.message);
+      }
+    });
+
+    // Auto-load mock scorecard for fast UI iteration
+    (async () => {
+      try {
+        const mock = await fetch('/mock_scorecard.json').then(r => r.json());
+        resultsPanel.classList.remove('hidden');
+        document.querySelectorAll('.tab')[1].click();
+        analyzeBtn.style.display = 'none';
+        scorecardEl.classList.remove('hidden');
+        renderScorecard(mock);
+      } catch (e) {}
+    })();
+
+    function renderScItem(item) {
+      const quotes = item.quotes || [];
+      if (!quotes.length) {
+        return '<li>• ' + escapeHTML(item.name) + ' <span class="freq">(' + item.count + '×)</span></li>';
+      }
+      let quotesHtml = '';
+      quotes.forEach(q => {
+        const colonIdx = q.indexOf(': ');
+        if (colonIdx > -1) {
+          const author = q.substring(0, colonIdx);
+          const text = q.substring(colonIdx + 2);
+          quotesHtml += '<div class="sc-quote"><span class="sc-quote-author">' + escapeHTML(author) + '</span>: ' + escapeHTML(text) + '</div>';
+        } else {
+          quotesHtml += '<div class="sc-quote">' + escapeHTML(q) + '</div>';
+        }
+      });
+      return '<li><details class="sc-item"><summary>' + escapeHTML(item.name) + ' <span class="freq">(' + item.count + '×)</span></summary>' + quotesHtml + '</details></li>';
+    }
+
+    function renderScorecard(data) {
+      const gradeEl = document.getElementById('sc-grade');
+      gradeEl.textContent = data.grade;
+      gradeEl.className = 'grade-circle';
+      if (['A+', 'A', 'B+', 'B'].includes(data.grade)) gradeEl.classList.add('green');
+      else if (['C+', 'C'].includes(data.grade)) gradeEl.classList.add('yellow');
+      else gradeEl.classList.add('red');
+
+      document.getElementById('sc-score').textContent = data.score + '/10';
+      document.getElementById('sc-summary').textContent = data.summary;
+
+      const bios = data.archetype_bios || {};
+      const tbody = document.querySelector('#sc-matrix tbody');
+      tbody.innerHTML = '';
+      for (const [arch, counts] of Object.entries(data.matrix)) {
+        const row = document.createElement('tr');
+        const silent = counts.silent || 0;
+        const bio = bios[arch] ? escapeHTML(bios[arch]) : 'Simulated Reddit persona';
+        row.innerHTML =
+          '<td><span data-tip="' + bio + '">' + arch + '</span></td>' +
+          '<td>' + (counts.positive || 0) + '</td>' +
+          '<td>' + (counts.neutral || 0) + '</td>' +
+          '<td>' + (counts.negative || 0) + '</td>' +
+          '<td class="silent">' + (silent > 0 ? silent : '') + '</td>';
+        tbody.appendChild(row);
+      }
+
+      const strengthsEl = document.getElementById('sc-strengths');
+      strengthsEl.innerHTML = '';
+      if (data.strengths.length) {
+        data.strengths.forEach(s => { strengthsEl.innerHTML += renderScItem(s); });
+      } else {
+        strengthsEl.innerHTML = '<li style="color:var(--muted)">None detected</li>';
+      }
+
+      const problemsEl = document.getElementById('sc-problems');
+      problemsEl.innerHTML = '';
+      if (data.problems.length) {
+        data.problems.forEach(p => { problemsEl.innerHTML += renderScItem(p); });
+      } else {
+        problemsEl.innerHTML = '<li style="color:var(--muted)">None detected</li>';
+      }
+
+      const featSection = document.getElementById('sc-features-section');
+      const featEl = document.getElementById('sc-features');
+      featEl.innerHTML = '';
+      if (data.missing_features && data.missing_features.length) {
+        featSection.classList.remove('hidden');
+        data.missing_features.forEach(f => {
+          featEl.innerHTML += '<li>• ' + escapeHTML(f.name) + ' <span class="freq">(' + f.count + '×)</span></li>';
+        });
+      }
+    }
+
+    rewriteBtn.addEventListener('click', async () => {
+      rewriteBtn.disabled = true;
+      rewriteBtn.innerHTML = '<span class="spinner"></span> Rewriting...';
+
+      try {
+        const data = await fetch('/api/rewrite/run', {method: 'POST'}).then(r => r.json());
+        rewriteResult.classList.remove('hidden');
+        improvedPost.value = data.improved_post || '';
+        rewriteBtn.style.display = 'none';
+      } catch (err) {
+        rewriteBtn.disabled = false;
+        rewriteBtn.textContent = '🔄 Rewrite Post Based on Feedback';
+        alert('Rewrite failed: ' + err.message);
       }
     });
 
     resimulateBtn.addEventListener('click', () => {
       postContent.value = improvedPost.value;
       window.scrollTo({top: 0, behavior: 'smooth'});
-      
-      // Switch back to thread tab visually
       tabs[0].click();
-      
-      // Auto launch
       launchBtn.click();
     });
 
-    // Utilities
     function escapeHTML(str) {
-      return str.replace(/[&<>'"]/g, 
+      return str.replace(/[&<>'"]/g,
         tag => ({
             '&': '&amp;',
             '<': '&lt;',
@@ -562,28 +824,6 @@ Questions:
             "'": '&#39;',
             '"': '&quot;'
           }[tag]));
-    }
-
-    function renderSimpleMarkdown(text) {
-      let html = escapeHTML(text);
-      
-      // Headers
-      html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
-      html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
-      html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
-      
-      // Bold & Italic
-      html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-      html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
-      
-      // Lists (simple)
-      html = html.replace(/^\s*-\s+(.*$)/gim, '<ul><li>$1</li></ul>');
-      html = html.replace(/<\/ul>\n<ul>/g, '\n');
-      
-      // Line breaks
-      html = html.replace(/\n/g, '<br>');
-      
-      return html;
     }
   </script>
 </body>

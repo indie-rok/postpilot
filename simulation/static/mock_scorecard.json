@@ -1,0 +1,137 @@
+{
+  "grade": "C",
+  "score": 4.6,
+  "summary": "Based on: 1 likes, 0 dislikes, 50.0% engagement",
+  "matrix": {
+    "Skeptical PM": {
+      "positive": 0,
+      "neutral": 0,
+      "negative": 1,
+      "silent": 2
+    },
+    "Scaled Founder": {
+      "positive": 1,
+      "neutral": 0,
+      "negative": 0,
+      "silent": 1
+    },
+    "Early Founder": {
+      "positive": 1,
+      "neutral": 0,
+      "negative": 0,
+      "silent": 1
+    },
+    "Indie Hacker": {
+      "positive": 0,
+      "neutral": 0,
+      "negative": 0,
+      "silent": 0
+    },
+    "HR/People Ops": {
+      "positive": 0,
+      "neutral": 1,
+      "negative": 0,
+      "silent": 1
+    },
+    "Community Regular": {
+      "positive": 0,
+      "neutral": 1,
+      "negative": 0,
+      "silent": 1
+    },
+    "VC/Growth": {
+      "positive": 0,
+      "neutral": 0,
+      "negative": 0,
+      "silent": 1
+    },
+    "Lurker": {
+      "positive": 0,
+      "neutral": 0,
+      "negative": 0,
+      "silent": 2
+    }
+  },
+  "themes": [
+    {
+      "name": "compliance requirements",
+      "count": 3,
+      "sentiment": "positive"
+    },
+    {
+      "name": "integration with bamboohr",
+      "count": 2,
+      "sentiment": "neutral"
+    },
+    {
+      "name": "compliance and data privacy",
+      "count": 2,
+      "sentiment": "neutral"
+    },
+    {
+      "name": "data pipeline architecture",
+      "count": 2,
+      "sentiment": "positive"
+    },
+    {
+      "name": "data residency and audit trails",
+      "count": 1,
+      "sentiment": "negative"
+    }
+  ],
+  "strengths": [
+    {
+      "name": "data pipeline architecture",
+      "count": 2,
+      "quotes": [
+        "founder_early_alex: This is such a crucial question! FlowPulse's integration with HRIS systems like BambooHR/Workday is indeed foundational. Could you share how you've architectured the data pipeline to handle compliance requirements (GDPR/CCPA) while maintaining real-time ML model performance? Specifically, how do you handle data residency for anonymous vs. opt-in data? This is exactly the kind of technical depth that helps founders like me validate product-market fit.",
+        "founder_scaled_elena: This is a crucial question! FlowPulse's integration with HRIS systems like BambooHR/Workday is indeed foundational. Could you share how you've architectured the data pipeline to handle compliance requirements (GDPR/CCPA) while maintaining real-time ML model performance? Specifically, how do you handle data residency for anonymous vs. opt-in data? This is exactly the kind of technical depth that helps founders like me validate product-market"
+      ]
+    },
+    {
+      "name": "compliance requirements",
+      "count": 2,
+      "quotes": [
+        "founder_early_alex: This is such a crucial question! FlowPulse's integration with HRIS systems like BambooHR/Workday is indeed foundational. Could you share how you've architectured the data pipeline to handle compliance requirements (GDPR/CCPA) while maintaining real-time ML model performance? Specifically, how do you handle data residency for anonymous vs. opt-in data? This is exactly the kind of technical depth that helps founders like me validate product-market fit.",
+        "founder_scaled_elena: This is a crucial question! FlowPulse's integration with HRIS systems like BambooHR/Workday is indeed foundational. Could you share how you've architectured the data pipeline to handle compliance requirements (GDPR/CCPA) while maintaining real-time ML model performance? Specifically, how do you handle data residency for anonymous vs. opt-in data? This is exactly the kind of technical depth that helps founders like me validate product-market"
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "name": "data residency and audit trails",
+      "count": 1,
+      "quotes": [
+        "skeptic_priya: Interesting post. The integration question is critical. FlowPulse's ML model must integrate with existing HRIS (like BambooHR/Workday) while maintaining compliance. How does your team ensure data residency and audit trails for sensitive employee data? This isn't just about API connectivity \u2014 it's about architectural trust. The 'privacy-first' claim needs concrete data governance frameworks, not just marketing language."
+      ]
+    },
+    {
+      "name": "compliance requirements",
+      "count": 1,
+      "quotes": [
+        "skeptic_priya: Interesting post. The integration question is critical. FlowPulse's ML model must integrate with existing HRIS (like BambooHR/Workday) while maintaining compliance. How does your team ensure data residency and audit trails for sensitive employee data? This isn't just about API connectivity \u2014 it's about architectural trust. The 'privacy-first' claim needs concrete data governance frameworks, not just marketing language."
+      ]
+    }
+  ],
+  "missing_features": [],
+  "metrics": {
+    "post_score": 1,
+    "num_likes": 1,
+    "num_dislikes": 0,
+    "comment_count": 14,
+    "total_agents": 18,
+    "engaged_agents": 9,
+    "silent_agents": 9,
+    "engagement_rate": 50.0
+  },
+  "archetype_bios": {
+    "Skeptical PM": "Product Operations at a hyper-growth startup. Efficiency obsessed.",
+    "Scaled Founder": "CEO @ ScaleUp. $10M ARR. Always learning.",
+    "Early Founder": "Building my first SaaS. Learning in public. ARR: $1k.",
+    "Indie Hacker": "Indie hacker. Shipping a new micro-SaaS every month until one sticks.",
+    "HR/People Ops": "VP of People & Culture. Shaping the future of work.",
+    "Community Regular": "SaaS enthusiast. Community moderator on other forums.",
+    "VC/Growth": "Partner at SeedFund. Looking for the next unicorn. DMs open.",
+    "Lurker": "Just here to read."
+  }
+}

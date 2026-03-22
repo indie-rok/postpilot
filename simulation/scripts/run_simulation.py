@@ -56,7 +56,7 @@ def create_model():
         raise ValueError("LLM_API_KEY not set in environment")
 
     base_url = os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")
-    model_type = os.getenv("LLM_MODEL", "openai/gpt-5.4-nano")
+    model_type = os.getenv("LLM_MODEL", "arcee-ai/trinity-mini:free")
 
     return ModelFactory.create(
         model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
@@ -160,9 +160,11 @@ async def run_simulation(post_path, profiles_path, tag, results_dir):
     await env.step(seed_action)
     print(f"Post seeded by {op_agent.user_info.user_name or op_agent.user_info.name}")
 
+    start_hour = TIME_CONFIG.get("start_hour", 9)
+
     for round_num in range(total_rounds):
         simulated_minutes = round_num * minutes_per_round
-        simulated_hour = (simulated_minutes // 60) % 24
+        simulated_hour = ((simulated_minutes // 60) + start_hour) % 24
         print(
             f"\n--- Round {round_num + 1}/{total_rounds} (simulated {simulated_hour:02d}:{simulated_minutes % 60:02d}) ---"
         )

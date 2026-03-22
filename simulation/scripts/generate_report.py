@@ -162,9 +162,9 @@ def _create_llm_model():
 
     return ModelFactory.create(
         model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
-        model_type=os.getenv("LLM_MODEL", "openai/gpt-5.4-nano"),
+        model_type=os.getenv("LLM_MODEL", "arcee-ai/trinity-mini:free"),
         api_key=os.getenv("LLM_API_KEY"),
-        url=os.getenv("LLM_BASE_URL", "https://api.minimax.chat/v1"),
+        url=os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
         model_config_dict={"temperature": 0.0},
     )
 
