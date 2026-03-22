@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FlowPulse — Reddit Simulation Lab</title>
+  <style>
+    :root {
+      --bg: #1a1a1b;
+      --card: #272729;
+      --text: #d7dadc;
+      --muted: #818384;
+      --border: #343536;
+      --brand: #ff4500;
+      --brand-hover: #ff5414;
+      --success: #4CAF50;
+      --error: #f44336;
+      --log-bg: #0d1117;
+      
+      /* Flairs */
+      --flair-early: #4CAF50;
+      --flair-scaled: #2196F3;
+      --flair-pm: #f44336;
+      --flair-indie: #FF9800;
+      --flair-hr: #9C27B0;
+      --flair-regular: #795548;
+      --flair-vc: #00BCD4;
+      --flair-lurker: #9E9E9E;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header { margin-bottom: 24px; text-align: center; }
+    h1 { font-size: 24px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    h2 { font-size: 18px; font-weight: 600; color: #fff; margin: 16px 0 8px; }
+    p.subtitle { color: var(--muted); font-size: 14px; }
+
+    .grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+    @media (min-width: 768px) { .grid { grid-template-columns: 350px 1fr; } }
+
+    .card {
+      background-color: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .form-group { margin-bottom: 20px; }
+    .label-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+    
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+      margin-top: -6px;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      cursor: pointer;
+      background: var(--border);
+      border-radius: 2px;
+    }
+    /* Simple filled track hack via linear gradient in JS */
+
+    .calc-info { font-size: 12px; color: var(--muted); text-align: center; margin-bottom: 16px; }
+
+    textarea {
+      width: 100%;
+      height: 250px;
+      background-color: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 12px;
+      font-size: 14px;
+      resize: vertical;
+      margin-bottom: 16px;
+    }
+    textarea:focus { outline: none; border-color: var(--brand); }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: var(--brand);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    button:hover:not(:disabled) { background-color: var(--brand-hover); }
+    button:disabled { background-color: var(--border); cursor: not-allowed; color: var(--muted); }
+    button.success { background-color: var(--success); color: #fff; }
+
+    /* Progress Panel */
+    .hidden { display: none !important; }
+    .log-container {
+      background-color: var(--log-bg);
+      border-radius: 4px;
+      padding: 12px;
+      height: 300px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 13px;
+      color: var(--success);
+      margin-top: 16px;
+    }
+    .log-line { margin-bottom: 4px; animation: fadeIn 0.3s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    /* Results */
+    .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+    .tab {
+      padding: 12px 24px;
+      cursor: pointer;
+      font-weight: 600;
+      color: var(--muted);
+      border-bottom: 2px solid transparent;
+    }
+    .tab.active { color: var(--text); border-bottom-color: var(--brand); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* Thread styles */
+    .stats-bar { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-bottom: 16px; padding: 12px; background: var(--bg); border-radius: 4px; }
+    
+    .comment { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .comment:last-child { border-bottom: none; }
+    .vote-column { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--muted); font-size: 12px; font-weight: bold; width: 24px; }
+    .upvote { cursor: pointer; color: var(--brand); }
+    .downvote { cursor: pointer; }
+    
+    .comment-content { flex: 1; }
+    .comment-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; margin-bottom: 4px; }
+    .author { font-weight: bold; color: var(--text); }
+    .time { color: var(--muted); }
+    
+    .flair {
+      padding: 2px 6px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .analysis-markdown { font-size: 14px; line-height: 1.6; color: var(--text); margin-bottom: 24px; }
+    .analysis-markdown h1, .analysis-markdown h2, .analysis-markdown h3 { margin: 16px 0 8px; color: #fff; }
+    .analysis-markdown ul { margin-left: 20px; margin-bottom: 12px; }
+    .analysis-markdown p { margin-bottom: 12px; }
+    .analysis-markdown strong { color: #fff; }
+    
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 8px;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>FlowPulse — Reddit Simulation Lab</h1>
+    <p class="subtitle">Simulate how your launch post performs on r/SaaS</p>
+  </header>
+
+  <div class="grid">
+    <!-- Config Panel -->
+    <div class="card" id="config-panel">
+      <div class="form-group">
+        <div class="label-row">
+          <label>Agents</label>
+          <span id="agents-val">10</span>
+        </div>
+        <input type="range" id="agents-slider" min="2" max="18" value="10">
+      </div>
+
+      <div class="form-group">
+        <div class="label-row">
+          <label>Hours</label>
+          <span id="hours-val">4</span>
+        </div>
+        <input type="range" id="hours-slider" min="1" max="24" value="4">
+      </div>
+
+      <div class="calc-info" id="calc-info">
+        8 rounds · ~40 LLM calls · ~2 minutes
+      </div>
+
+      <textarea id="post-content">We built a tool that predicts employee burnout before it turns into a resignation. Here's what we learned from 14 beta companies.
+
+Hey r/SaaS — Maya here, co-founder of FlowPulse.
+
+Quick background: I spent 4 years running People Ops. I watched dozens of great people quietly burn out and leave. Every time, their manager said "I had no idea." The signs were always there — we just didn't have a way to see them in real time.
+
+FlowPulse is a lightweight pulse check platform for remote and hybrid teams:
+
+1. Micro check-ins — one-tap, emoji-based daily prompts (~15 seconds). 78% completion vs ~23% for traditional surveys.
+2. Burnout Radar — ML model that flags at-risk patterns. Managers get suggested actions, not raw data. Individuals stay anonymous unless they opt in.
+
+What we learned from beta (14 companies, ~1,200 users):
+- Privacy is the whole game. We rebuilt our data layer after beta companies almost dropped us.
+- Simpler check-ins = higher signal. Single emoji tap + optional comment.
+- Managers don't want data — they want "what do I do."
+- After-hours work is the strongest burnout predictor. Preceded every resignation by 3–5 weeks.
+
+Numbers: NPS 72, daily active 64%, churn 2.1%, 40+ waitlist.
+Pricing: $4/user/mo (Starter), $8/user/mo (Growth), custom (Enterprise).
+
+Questions:
+1. Does $4–8/user feel right?
+2. Does "privacy-first" resonate or is it table stakes?
+3. "Team analytics" vs "burnout prevention" — which makes you click?
+
+— Maya (flowpulse.io)</textarea>
+
+      <button id="launch-btn">🚀 Launch Simulation</button>
+    </div>
+
+    <!-- Right Side (Progress / Results) -->
+    <div class="content-area">
+      
+      <!-- Progress Panel -->
+      <div class="card hidden" id="progress-panel">
+        <h2 id="progress-title"><span class="spinner" id="progress-spinner"></span>Running Simulation...</h2>
+        <div class="log-container" id="log-container"></div>
+      </div>
+
+      <!-- Results Panel -->
+      <div class="card hidden" id="results-panel">
+        <div class="tabs">
+          <div class="tab active" data-target="tab-thread">Thread</div>
+          <div class="tab" data-target="tab-analysis">Analysis</div>
+        </div>
+
+        <!-- Thread Tab -->
+        <div id="tab-thread" class="tab-content active">
+          <div class="stats-bar" id="stats-bar">
+            <span>Score: <strong id="stat-score">0</strong></span>
+            <span>Comments: <strong id="stat-comments">0</strong></span>
+            <span>Agents: <strong id="stat-agents">0</strong></span>
+          </div>
+          <div id="thread-container"></div>
+        </div>
+
+        <!-- Analysis Tab -->
+        <div id="tab-analysis" class="tab-content">
+          <button id="analyze-btn" style="margin-bottom: 20px;">🔍 Analyze & Generate Improved Post</button>
+          
+          <div id="analysis-content" class="hidden">
+            <h2>Analysis Report</h2>
+            <div id="analysis-markdown" class="analysis-markdown"></div>
+            
+            <h2>Improved Post</h2>
+            <textarea id="improved-post" readonly style="height: 150px; background: var(--bg); color: var(--text);"></textarea>
+            <button id="resimulate-btn" style="margin-top: 12px; background: var(--border);">🔄 Re-simulate with this post</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // Elements
+    const agentsSlider = document.getElementById('agents-slider');
+    const hoursSlider = document.getElementById('hours-slider');
+    const agentsVal = document.getElementById('agents-val');
+    const hoursVal = document.getElementById('hours-val');
+    const calcInfo = document.getElementById('calc-info');
+    const postContent = document.getElementById('post-content');
+    const launchBtn = document.getElementById('launch-btn');
+    
+    const progressPanel = document.getElementById('progress-panel');
+    const progressTitle = document.getElementById('progress-title');
+    const progressSpinner = document.getElementById('progress-spinner');
+    const logContainer = document.getElementById('log-container');
+    
+    const resultsPanel = document.getElementById('results-panel');
+    const tabs = document.querySelectorAll('.tab');
+    const tabContents = document.querySelectorAll('.tab-content');
+    
+    const threadContainer = document.getElementById('thread-container');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const analysisContent = document.getElementById('analysis-content');
+    const analysisMarkdown = document.getElementById('analysis-markdown');
+    const improvedPost = document.getElementById('improved-post');
+    const resimulateBtn = document.getElementById('resimulate-btn');
+
+    let ws = null;
+
+    // Sliders & Calculation
+    function updateCalc() {
+      const agents = parseInt(agentsSlider.value);
+      const hours = parseInt(hoursSlider.value);
+      
+      agentsVal.textContent = agents;
+      hoursVal.textContent = hours;
+      
+      const rounds = hours * 2;
+      const llmCalls = Math.floor(agents * rounds * 0.5);
+      const minutes = Math.max(1, Math.round((llmCalls * 3) / 60));
+      
+      calcInfo.textContent = `${rounds} rounds · ~${llmCalls} LLM calls · ~${minutes} minutes`;
+      
+      updateSliderTrack(agentsSlider);
+      updateSliderTrack(hoursSlider);
+    }
+
+    function updateSliderTrack(slider) {
+      const percentage = (slider.value - slider.min) / (slider.max - slider.min) * 100;
+      slider.style.background = `linear-gradient(to right, var(--brand) ${percentage}%, var(--border) ${percentage}%)`;
+    }
+
+    agentsSlider.addEventListener('input', updateCalc);
+    hoursSlider.addEventListener('input', updateCalc);
+    updateCalc();
+
+    // Tabs logic
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(c => c.classList.remove('active'));
+        
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.target).classList.add('active');
+      });
+    });
+
+    // Logging
+    function appendLog(msg) {
+      const div = document.createElement('div');
+      div.className = 'log-line';
+      div.textContent = `> ${msg}`;
+      logContainer.appendChild(div);
+      logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    function connectWebSocket() {
+      if (ws) {
+        ws.close();
+      }
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(`${protocol}//${location.host}/ws/progress`);
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'log') {
+            appendLog(data.message);
+          } else if (data.type === 'done') {
+            simulationDone();
+          } else if (data.type === 'error') {
+            appendLog(`ERROR: ${data.message}`);
+            resetLaunchButton();
+          }
+        } catch(e) {
+          appendLog(event.data);
+        }
+      };
+
+      ws.onclose = () => {
+        // Simple auto-reconnect if not done running
+        if (launchBtn.disabled && !launchBtn.classList.contains('success')) {
+          setTimeout(connectWebSocket, 1000);
+        }
+      };
+    }
+
+    // Launch
+    launchBtn.addEventListener('click', async () => {
+      const content = postContent.value.trim();
+      if (!content) {
+        alert("Please enter a post content");
+        return;
+      }
+
+      // UI updates
+      launchBtn.disabled = true;
+      launchBtn.innerHTML = '<span class="spinner"></span> Running...';
+      launchBtn.style.backgroundColor = 'var(--border)';
+      launchBtn.style.color = 'var(--muted)';
+      
+      progressPanel.classList.remove('hidden');
+      resultsPanel.classList.add('hidden');
+      progressTitle.innerHTML = '<span class="spinner" id="progress-spinner"></span>Running Simulation...';
+      progressTitle.style.color = '#fff';
+      logContainer.innerHTML = '';
+      
+      connectWebSocket();
+      appendLog("Starting simulation...");
+
+      try {
+        const response = await fetch('/api/simulate', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            agent_count: parseInt(agentsSlider.value),
+            total_hours: parseInt(hoursSlider.value),
+            post_content: content,
+          })
+        });
+        
+        if (!response.ok) throw new Error("Failed to start simulation");
+      } catch (err) {
+        appendLog(`Error: ${err.message}`);
+        resetLaunchButton();
+      }
+    });
+
+    async function simulationDone() {
+      progressTitle.innerHTML = '✓ Simulation complete';
+      progressTitle.style.color = 'var(--success)';
+      
+      launchBtn.classList.add('success');
+      launchBtn.textContent = '✓ Complete';
+      launchBtn.style.backgroundColor = 'var(--success)';
+      launchBtn.style.color = '#fff';
+      
+      setTimeout(resetLaunchButton, 3000);
+      
+      await loadResults();
+      resultsPanel.classList.remove('hidden');
+    }
+
+    function resetLaunchButton() {
+      launchBtn.disabled = false;
+      launchBtn.textContent = '🚀 Launch Simulation';
+      launchBtn.classList.remove('success');
+      launchBtn.style.backgroundColor = '';
+      launchBtn.style.color = '';
+    }
+
+    // Results
+    async function loadResults() {
+      try {
+        const results = await fetch('/api/results/run').then(r => r.json());
+        renderThread(results);
+      } catch (err) {
+        appendLog(`Error loading results: ${err.message}`);
+      }
+    }
+
+    function getFlairColor(archetype) {
+      const lower = archetype.toLowerCase();
+      if (lower.includes('early')) return 'var(--flair-early)';
+      if (lower.includes('scaled')) return 'var(--flair-scaled)';
+      if (lower.includes('pm')) return 'var(--flair-pm)';
+      if (lower.includes('indie')) return 'var(--flair-indie)';
+      if (lower.includes('hr') || lower.includes('people')) return 'var(--flair-hr)';
+      if (lower.includes('regular')) return 'var(--flair-regular)';
+      if (lower.includes('vc') || lower.includes('growth')) return 'var(--flair-vc)';
+      if (lower.includes('lurker')) return 'var(--flair-lurker)';
+      return '#757575';
+    }
+
+    function renderThread(data) {
+      if (!data || !data.comments) return;
+      
+      document.getElementById('stat-score').textContent = data.score || 0;
+      document.getElementById('stat-comments').textContent = data.comments.length || 0;
+      document.getElementById('stat-agents').textContent = agentsSlider.value; // Approximate
+      
+      threadContainer.innerHTML = '';
+      
+      // Sort comments by time if available
+      const comments = data.comments.sort((a, b) => (a.time || 0) - (b.time || 0));
+      
+      comments.forEach(c => {
+        const div = document.createElement('div');
+        div.className = 'comment';
+        
+        const voteScore = c.upvotes ? c.upvotes - (c.downvotes || 0) : Math.floor(Math.random() * 10);
+        const archetype = c.archetype || 'User';
+        const flairColor = getFlairColor(archetype);
+        
+        div.innerHTML = `
+          <div class="vote-column">
+            <span class="upvote">▲</span>
+            <span>${voteScore}</span>
+            <span class="downvote">▼</span>
+          </div>
+          <div class="comment-content">
+            <div class="comment-meta">
+              <span class="author">${c.author || 'User'}</span>
+              <span class="flair" style="background-color: ${flairColor}">${archetype}</span>
+              <span class="time">${c.time ? c.time + 'h ago' : 'just now'}</span>
+            </div>
+            <div class="text">${escapeHTML(c.text || c.content || '')}</div>
+          </div>
+        `;
+        threadContainer.appendChild(div);
+      });
+    }
+
+    // Analysis
+    analyzeBtn.addEventListener('click', async () => {
+      analyzeBtn.disabled = true;
+      analyzeBtn.innerHTML = '<span class="spinner"></span> Analyzing...';
+      
+      try {
+        const data = await fetch('/api/analyze/run', {method: 'POST'}).then(r => r.json());
+        
+        analyzeBtn.style.display = 'none';
+        analysisContent.classList.remove('hidden');
+        
+        analysisMarkdown.innerHTML = renderSimpleMarkdown(data.analysis || 'No analysis provided.');
+        improvedPost.value = data.improved_post || '';
+        
+      } catch (err) {
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = '🔍 Analyze & Generate Improved Post';
+        alert('Analysis failed: ' + err.message);
+      }
+    });
+
+    resimulateBtn.addEventListener('click', () => {
+      postContent.value = improvedPost.value;
+      window.scrollTo({top: 0, behavior: 'smooth'});
+      
+      // Switch back to thread tab visually
+      tabs[0].click();
+      
+      // Auto launch
+      launchBtn.click();
+    });
+
+    // Utilities
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            "'": '&#39;',
+            '"': '&quot;'
+          }[tag]));
+    }
+
+    function renderSimpleMarkdown(text) {
+      let html = escapeHTML(text);
+      
+      // Headers
+      html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+      html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+      html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+      
+      // Bold & Italic
+      html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+      
+      // Lists (simple)
+      html = html.replace(/^\s*-\s+(.*$)/gim, '<ul><li>$1</li></ul>');
+      html = html.replace(/<\/ul>\n<ul>/g, '\n');
+      
+      // Line breaks
+      html = html.replace(/\n/g, '<br>');
+      
+      return html;
+    }
+  </script>
+</body>
+</html>

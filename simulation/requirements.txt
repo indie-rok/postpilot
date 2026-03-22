@@ -1,0 +1,7 @@
+camel-ai>=0.2.78
+camel-oasis @ git+https://github.com/camel-ai/oasis.git
+python-dotenv>=1.0.0
+pytest>=8.0.0
+fastapi>=0.115.0
+uvicorn>=0.30.0
+websockets>=12.0

@@ -1,0 +1,69 @@
+We built a tool that predicts employee burnout before it turns into a resignation. Here's what we learned from 14 beta companies.
+
+Hey r/SaaS — Maya here, co-founder of FlowPulse.
+
+Quick background: I spent 4 years running People Ops at a fast-growing design tool company. During that time, I watched dozens of great engineers, designers, and PMs quietly burn out and leave. Every single time, their manager said the same thing: "I had no idea."
+
+The frustrating part? The signs were always there. We just didn't have a way to see them in real time.
+
+The problem we kept hitting
+
+Every company I've worked at used some version of the same playbook: quarterly engagement surveys, optional 1:1s, maybe an annual eNPS score. The data was always 6–12 weeks stale by the time anyone acted on it. And the response rates were brutal — our best quarter was 31%.
+
+Meanwhile, people were burning out in the gap between surveys.
+
+We started asking: what if you could see team energy the same way you see uptime on a dashboard? Not surveillance. Not keystroke logging. Just... signal.
+
+What we built
+
+FlowPulse is a lightweight pulse check platform for remote and hybrid teams. Two core pieces:
+
+1. Micro check-ins — one-tap, emoji-based daily prompts that take ~15 seconds. Totally optional, but we're seeing 78% completion rates vs. ~23% for traditional surveys. Turns out people will share how they feel if you make it dead simple and don't ask them to write a paragraph.
+
+2. Burnout Radar — ML model that watches for pattern shifts across anonymized signals (participation drops, after-hours activity spikes, sentiment drift). When it flags someone as at-risk, the manager gets an alert with suggested actions, not raw data. The individual stays anonymous unless they choose otherwise.
+
+It plugs into Slack, Teams, Linear, Jira, GitHub, and Notion — no new tab to manage.
+
+What 3 months of beta taught us
+
+We ran a closed beta with 14 companies (~1,200 users). Some things we learned the hard way:
+
+Privacy is the whole game. Our first version showed too much individual-level data. Three beta companies almost dropped us over it. We rebuilt the entire data layer around anonymization and aggregation. Now no manager sees individual responses unless the employee explicitly opts in. This is non-negotiable.
+
+The simpler the check-in, the higher the signal. We started with 3-question daily surveys. Completion tanked to 20% within a week. Cut it to a single emoji tap + optional comment. Participation jumped to 78% and stayed there.
+
+Managers don't want data. They want "what do I do." Our early dashboard was all charts and trends. Managers ignored it. When we added specific intervention suggestions ("Schedule a 1:1 with your backend squad — energy has dropped 3 weeks straight"), engagement with the tool tripled.
+
+"After-hours work" is the strongest burnout predictor we've found. Not sentiment. Not survey answers. Just the raw signal of when people are pushing commits or sending messages outside their normal window, consistently. That pattern preceded every resignation in our beta by 3–5 weeks.
+
+Numbers so far
+
+14 beta companies, 1,200 users
+NPS: 72
+Daily active rate: 64% (without reminder notifications)
+Monthly churn: 2.1%
+40+ companies on the waitlist
+
+Pricing
+
+Trying to keep it simple:
+
+Starter — $4/user/mo (teams under 25)
+Growth — $8/user/mo (25–500 people)
+Enterprise — custom (SSO, SLAs, dedicated support)
+
+20% off annual.
+
+What I'd love feedback on
+
+1. Pricing — does $4–8/user feel right for this category? We've gotten pushback from a few smaller teams that it's steep for a "nice to have."
+2. The privacy angle — we're leaning hard into "privacy-first" as a differentiator vs. the monitoring/surveillance tools. Does that resonate, or does it feel like table stakes at this point?
+3. Positioning — we keep going back and forth between "team analytics" and "burnout prevention." The first sounds broader but vaguer. The second is more specific but might pigeonhole us. What would make you click?
+
+Genuinely here to learn — we're early and still shaping this. Happy to answer anything about the tech, the beta learnings, or the business model.
+
+Thanks for reading.
+
+— Maya
+
+flowpulse.io

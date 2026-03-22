@@ -1,0 +1,46 @@
+# Environment
+.env
+*.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Testing / Linting caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Simulation results (regenerable)
+simulation/results/*.db
+simulation/results/*.html
+simulation/results/*.json
+simulation/results/*.md
+
+# Runtime profiles (generated per run)
+simulation/profiles/run_profiles.json
+simulation/profiles/test_*.json
+simulation/posts/run_post.txt
+
+# Logs
+log/
+simulation/log/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Superpowers internals
+.superpowers/
+
+# Node (if any)
+node_modules/
