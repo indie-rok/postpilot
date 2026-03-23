@@ -254,9 +254,6 @@ async def run_simulation(
 
         llm_calls += len(active)
 
-    if app_db_path is not None and run_id is not None:
-        extract_oasis_results(app_db_path, db_path, run_id, oasis_to_run_agent)
-
     print(f"\n=== Simulation complete: {tag} ===")
     print(f"Results saved to: {db_path}")
 
@@ -269,13 +266,6 @@ async def run_simulation(
         oasis_to_run_agent=oasis_to_run_agent,
         username_to_archetype=username_to_archetype,
     )
-    if app_db_path is not None and run_id is not None:
-        update_run_status(
-            app_db_path,
-            run_id,
-            "complete",
-            completed_at=datetime.now(timezone.utc).isoformat(),
-        )
 
     interview_count = len(interviews) if isinstance(interviews, list) else 0
     print(f"Interviews complete: {interview_count} responses saved to DB")
@@ -283,6 +273,17 @@ async def run_simulation(
     emit_progress(phase="complete", llm_calls=llm_calls)
 
     await env.close()
+
+    # Extract OASIS results AFTER env.close() to ensure all data is flushed to SQLite
+    if app_db_path is not None and run_id is not None:
+        extract_oasis_results(app_db_path, db_path, run_id, oasis_to_run_agent)
+        update_run_status(
+            app_db_path,
+            run_id,
+            "complete",
+            completed_at=datetime.now(timezone.utc).isoformat(),
+        )
+
     return db_path
 
 
