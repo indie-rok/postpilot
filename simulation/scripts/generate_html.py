@@ -3,92 +3,15 @@
 import argparse
 import json
 import os
-import sqlite3
 import sys
+from typing import Any
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from db import get_results_for_run
 
 
-def extract_data(db_path: str, profiles_path: str) -> dict:
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-
-    cur.execute(
-        "SELECT post_id, content, num_likes, num_dislikes, created_at "
-        "FROM post WHERE post_id = 1"
-    )
-    r = cur.fetchone()
-    post = {
-        "id": r[0],
-        "content": r[1],
-        "likes": r[2],
-        "dislikes": r[3],
-        "created_at": r[4],
-    }
-
-    cur.execute(
-        "SELECT c.comment_id, c.content, c.num_likes, c.num_dislikes, "
-        "c.created_at, COALESCE(u.user_name, u.name) as author, u.user_id "
-        "FROM comment c JOIN user u ON c.user_id = u.user_id "
-        "WHERE c.post_id = 1 ORDER BY c.created_at"
-    )
-    comments = [
-        {
-            "id": r[0],
-            "content": r[1],
-            "likes": r[2],
-            "dislikes": r[3],
-            "created_at": r[4],
-            "author": r[5],
-            "user_id": r[6],
-        }
-        for r in cur.fetchall()
-    ]
-
-    cur.execute(
-        "SELECT action, COUNT(*) FROM trace GROUP BY action ORDER BY COUNT(*) DESC"
-    )
-    actions = {r[0]: r[1] for r in cur.fetchall()}
-
-    active = len({c["user_id"] for c in comments})
-    cur.execute("SELECT COUNT(*) FROM user")
-    total_agents = cur.fetchone()[0]
-    conn.close()
-
-    profiles = json.load(open(profiles_path))
-    profile_map = {}
-    archetype_prefixes = {
-        "founder_early": "Early Founder",
-        "founder_scaled": "Scaled Founder",
-        "skeptic": "Skeptical PM",
-        "indie": "Indie Hacker",
-        "hr": "HR/People Ops",
-        "lurker": "Lurker",
-        "regular": "Community Regular",
-        "vc": "VC/Growth",
-    }
-    for p in profiles:
-        archetype = "Unknown"
-        for prefix, label in archetype_prefixes.items():
-            if prefix in p["username"]:
-                archetype = label
-                break
-        profile_map[p["realname"].lower()] = {
-            "username": p["username"],
-            "archetype": archetype,
-            "bio": p["bio"],
-        }
-
-    return {
-        "post": post,
-        "comments": comments,
-        "profiles": profile_map,
-        "actions": actions,
-        "stats": {
-            "score": post["likes"] - post["dislikes"],
-            "total_agents": total_agents,
-            "commenting_agents": active,
-            "total_comments": len(comments),
-        },
-    }
+def extract_data(app_db_path: str, run_id: int) -> dict[str, Any]:
+    return get_results_for_run(app_db_path, run_id)
 
 
 TEMPLATE = r"""<!DOCTYPE html>
@@ -264,24 +187,20 @@ def main():
     parser = argparse.ArgumentParser(
         description="Generate Reddit-style HTML thread from simulation DB"
     )
-    parser.add_argument("db", help="Path to simulation SQLite DB")
+    parser.add_argument("db", help="Path to app SQLite DB")
     parser.add_argument(
-        "--profiles",
-        default=os.path.join(
-            os.path.dirname(__file__), "..", "profiles", "r_saas_community.json"
-        ),
+        "--run-id", type=int, required=True, help="Run ID to generate HTML for"
     )
     parser.add_argument(
-        "--output", help="Output HTML path (default: results/<tag>-thread.html)"
+        "--output", help="Output HTML path (default: results/<run-id>-thread.html)"
     )
     args = parser.parse_args()
 
-    tag = os.path.splitext(os.path.basename(args.db))[0]
     if not args.output:
         results_dir = os.path.dirname(args.db) or "results"
-        args.output = os.path.join(results_dir, f"{tag}-thread.html")
+        args.output = os.path.join(results_dir, f"{args.run_id}-thread.html")
 
-    data = extract_data(args.db, args.profiles)
+    data = extract_data(args.db, args.run_id)
     data_json = json.dumps(data, indent=2, ensure_ascii=False, default=str)
     html = TEMPLATE.replace("__DATA__", data_json)
 
