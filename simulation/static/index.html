@@ -964,7 +964,8 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
       analyzeBtn.innerHTML = '<span class="spinner"></span> Analyzing...';
 
       try {
-        const data = await fetch('/api/scorecard/run', {
+        if (!activeRunTag) { alert('No run selected'); analyzeBtn.disabled = false; analyzeBtn.textContent = '📊 Generate Scorecard'; return; }
+        const data = await fetch('/api/scorecard/' + activeRunTag, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({batch_size: parseInt(batchSizeInput.value) || 0}),
@@ -1171,7 +1172,8 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
       rewriteBtn.innerHTML = '<span class="spinner"></span> Rewriting...';
 
       try {
-        const data = await fetch('/api/rewrite/run', {
+        if (!activeRunTag) { alert('No run selected'); rewriteBtn.disabled = false; rewriteBtn.textContent = '✍️ Rewrite Post'; return; }
+        const data = await fetch('/api/rewrite/' + activeRunTag, {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({batch_size: parseInt(batchSizeInput.value) || 0}),
