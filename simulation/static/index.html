@@ -506,7 +506,54 @@
 </head>
 <body>
 <div id="app">
-  <div id="view-setup" class="view"></div>
+  <div id="view-setup" class="view">
+
+<div style="max-width:600px;margin:60px auto;padding:0 24px;">
+  <h1 style="font-size:24px;margin-bottom:8px;">Set up your product</h1>
+  <p class="subtitle" style="margin-bottom:32px;">Tell us about your product so simulations can be tailored to it</p>
+  
+  <div class="form-group">
+    <div class="small-label">Product Name *</div>
+    <input type="text" id="setup-name" placeholder="e.g. FlowPulse">
+  </div>
+  <div class="form-group">
+    <div class="small-label">Tagline</div>
+    <input type="text" id="setup-tagline" placeholder="One-liner description">
+  </div>
+  <div class="form-group">
+    <div class="small-label">Description</div>
+    <textarea id="setup-description" style="height:100px;" placeholder="What does your product do?"></textarea>
+  </div>
+  <div class="form-group">
+    <div class="small-label">Key Features</div>
+    <textarea id="setup-features" style="height:80px;" placeholder="Bullet list of key features"></textarea>
+  </div>
+  <div class="form-group">
+    <div class="small-label">Pricing</div>
+    <input type="text" id="setup-pricing" placeholder="e.g. /mo starter, /mo pro">
+  </div>
+  <div class="form-group">
+    <div class="small-label">Target Audience</div>
+    <input type="text" id="setup-target" placeholder="e.g. SaaS founders, HR managers">
+  </div>
+  
+  <h2 style="margin-top:24px;">Simulation Settings</h2>
+  <div class="form-group">
+    <div class="small-label">LLM Model</div>
+    <input type="text" id="setup-llm-model" value="gpt-5-mini">
+  </div>
+  <div class="form-group">
+    <div class="small-label">LLM Endpoint</div>
+    <input type="text" id="setup-llm-url" placeholder="e.g. https://api.openai.com/v1">
+  </div>
+  <div class="form-group">
+    <div class="small-label">LLM API Key</div>
+    <input type="password" id="setup-llm-key" placeholder="Your API key">
+  </div>
+  
+  <button type="button" id="setup-save-btn" style="margin-top:16px;">Save & Continue</button>
+</div>
+</div>
   <div id="view-dashboard" class="view"></div>
   <div id="view-add-community" class="view"></div>
   <div id="view-simulate" class="view">
@@ -820,6 +867,41 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     window.addEventListener('popstate', routeToView);
 
     function initSetup() {}
+
+document.getElementById('setup-save-btn').addEventListener('click', async () => {
+  const name = document.getElementById('setup-name').value.trim();
+  if (!name) { alert('Product name is required'); return; }
+  
+  const btn = document.getElementById('setup-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+  
+  try {
+    const resp = await fetch('/api/product', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        name,
+        tagline: document.getElementById('setup-tagline').value.trim() || null,
+        description: document.getElementById('setup-description').value.trim() || null,
+        features: document.getElementById('setup-features').value.trim() || null,
+        pricing: document.getElementById('setup-pricing').value.trim() || null,
+        target_audience: document.getElementById('setup-target').value.trim() || null,
+        llm_model: document.getElementById('setup-llm-model').value.trim() || null,
+        llm_base_url: document.getElementById('setup-llm-url').value.trim() || null,
+        llm_api_key: document.getElementById('setup-llm-key').value.trim() || null,
+      }),
+    });
+    if (!resp.ok) throw new Error('Failed to save');
+    navigateTo('/dashboard');
+  } catch (err) {
+    alert('Error: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save & Continue';
+  }
+});
+
     function initDashboard() {}
     function initAddCommunity() {}
     function initSimulateView(communityId) {}
