@@ -194,7 +194,15 @@ class SimulationCoordinator:
                     break
                 msg = line.decode("utf-8", errors="replace").rstrip()
                 if msg:
-                    await self.broadcast({"type": "log", "message": msg})
+                    if msg.startswith("PROGRESS:"):
+                        try:
+                            progress_data = json.loads(msg[9:])
+                            progress_data["type"] = "progress"
+                            await self.broadcast(progress_data)
+                        except json.JSONDecodeError:
+                            await self.broadcast({"type": "log", "message": msg})
+                    else:
+                        await self.broadcast({"type": "log", "message": msg})
 
             return_code = await process.wait()
             if return_code == 0:
