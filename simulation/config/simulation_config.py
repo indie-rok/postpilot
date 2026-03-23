@@ -14,7 +14,7 @@ PLATFORM_CONFIG = {
 }
 
 TIME_CONFIG = {
-    "total_hours": 2,
+    "total_hours": 4,
     "minutes_per_round": 30,
     "start_hour": 9,
     "agents_per_hour_min": 1,

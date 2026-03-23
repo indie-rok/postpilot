@@ -98,7 +98,7 @@ Be concrete. Quote the comments. No generic advice."""
 
 
 def rewrite(original_post: str, analysis: str) -> str:
-    prompt = f"""You are rewriting a Reddit launch post for r/SaaS based on community feedback.
+    prompt = f"""You are rewriting a Reddit launch post based on community feedback.
 
 ORIGINAL POST:
 {original_post}
@@ -107,11 +107,11 @@ ANALYSIS OF COMMUNITY FEEDBACK:
 {analysis}
 
 Rewrite the post applying the feedback. Specific instructions:
-- Keep the same voice (Maya, co-founder of FlowPulse)
+- Keep the same voice and author identity as the original post
 - Lead with whatever the analysis identified as the strongest hook
 - Address the top objections preemptively (don't wait for comments to raise them)
 - Tighten the positioning against competitors mentioned in feedback
-- Adjust pricing framing based on feedback
+- Adjust pricing framing based on feedback (if applicable)
 - Cut anything the analysis flagged as weak or ignored
 - Keep it Reddit-native — no corporate speak, no hard sell
 - Same approximate length as the original

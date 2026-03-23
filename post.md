@@ -80,8 +80,8 @@ Trying to keep it simple:
 
 Genuinely here to learn — we're early and still shaping this. Happy to answer anything about the tech, the beta learnings, or the business model.
 
+**If you want to check it out:** [flowpulse.io](https://flowpulse.io) — we just opened early access. No credit card required.
+
 Thanks for reading.
 
 — Maya
-
-[flowpulse.io](https://flowpulse.io)

@@ -162,6 +162,8 @@ async def run_simulation(post_path, profiles_path, tag, results_dir):
 
     start_hour = TIME_CONFIG.get("start_hour", 9)
 
+    engaged_agent_ids: set[int] = set()
+
     for round_num in range(total_rounds):
         simulated_minutes = round_num * minutes_per_round
         simulated_hour = ((simulated_minutes // 60) + start_hour) % 24
@@ -175,14 +177,68 @@ async def run_simulation(post_path, profiles_path, tag, results_dir):
         if not active:
             continue
 
+        for aid, _ in active:
+            engaged_agent_ids.add(aid)
+
         round_actions: dict[Any, Any] = {agent: LLMAction() for _, agent in active}
         await env.step(round_actions)
 
     print(f"\n=== Simulation complete: {tag} ===")
     print(f"Results saved to: {db_path}")
 
+    interviews = await run_interviews(agents, engaged_agent_ids)
+    interviews_path = os.path.join(results_dir, f"{tag}_interviews.json")
+    with open(interviews_path, "w") as f:
+        json.dump(interviews, f, indent=2, ensure_ascii=False)
+    print(f"Interviews saved: {len(interviews)} responses → {interviews_path}")
+
     await env.close()
     return db_path
+
+
+INTERVIEW_PROMPT = (
+    "Based on the Reddit post you just read and the discussion that followed, "
+    "answer these three questions:\n"
+    "1. What does this product do and who is it for?\n"
+    "2. Would you click the link to check it out? Why or why not?\n"
+    "3. Would you actually sign up or try it? Why or why not?"
+)
+
+
+async def run_interviews(agents: list, engaged_ids: set[int]) -> list[dict]:
+    print("\n--- Running post-simulation interviews ---")
+    skipped = [aid for aid, _ in agents if aid not in engaged_ids]
+    if skipped:
+        print(f"  Skipping {len(skipped)} agents that were never activated")
+    results = []
+    for agent_id, agent in agents:
+        if agent_id not in engaged_ids:
+            continue
+        username = agent.user_info.user_name or agent.user_info.name or ""
+        try:
+            response = await agent.perform_interview(INTERVIEW_PROMPT)
+            results.append(
+                {
+                    "user_id": agent_id,
+                    "username": username,
+                    "archetype": get_archetype(username),
+                    "response": response.get("content", ""),
+                    "success": response.get("success", False),
+                }
+            )
+            print(f"  Interviewed {username}: {response.get('content', '')[:80]}...")
+        except Exception as exc:
+            print(f"  Interview failed for {username}: {exc}")
+            results.append(
+                {
+                    "user_id": agent_id,
+                    "username": username,
+                    "archetype": get_archetype(username),
+                    "response": "",
+                    "success": False,
+                }
+            )
+    return results
 
 
 def main():

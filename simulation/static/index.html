@@ -288,6 +288,30 @@
     .matrix-table th[data-tip] { border-bottom: none; cursor: help; }
     .matrix-table th[data-tip]:hover::after { left: 50%; transform: translateX(-50%); }
 
+    .funnel-row { margin-bottom: 16px; }
+    .funnel-label { display: flex; justify-content: space-between; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+    .funnel-bar-bg { background: var(--border); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+    .funnel-bar-fill { height: 100%; transition: width 0.3s; }
+    .funnel-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .funnel-pill { font-size: 11px; padding: 2px 6px; border-radius: 12px; background: var(--card); border: 1px solid var(--border); color: var(--muted); }
+    
+    .clarity-top { text-align: center; margin-bottom: 16px; }
+    .clarity-score { font-size: 32px; font-weight: 800; color: #fff; }
+    .clarity-label { font-size: 13px; color: var(--muted); }
+    .clarity-boxes { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; text-align: center; }
+    .clarity-box { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 8px; font-size: 13px; font-weight: 600; }
+    .clarity-box.clear { border-bottom: 3px solid var(--success); }
+    .clarity-box.partial { border-bottom: 3px solid #f9a825; }
+    .clarity-box.confused { border-bottom: 3px solid var(--error); }
+
+    .objection-badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-right: 8px; color: #fff; text-transform: uppercase; display: inline-block; vertical-align: middle; }
+    .badge-trust { background: var(--error); }
+    .badge-value { background: #f57c00; }
+    .badge-technical { background: #2196F3; }
+    .badge-pricing { background: #fbc02d; color: #000; }
+
+
+
   </style>
 </head>
 <body>
@@ -328,11 +352,18 @@
         </div>
         <div class="form-group">
           <div class="small-label">Endpoint</div>
-          <input type="text" id="base-url" value="https://openrouter.ai/api/v1">
+          <input type="text" id="base-url" value="http://localhost:8317/v1">
         </div>
         <div class="form-group">
           <div class="small-label">Model</div>
-          <input type="text" id="llm-model" value="arcee-ai/trinity-mini:free">
+          <input type="text" id="llm-model" value="claude-sonnet-4-5-20250929">
+        </div>
+        <div class="form-group">
+          <div class="small-label" style="display:flex;justify-content:space-between;">
+            <span>Batch Size</span>
+            <span style="color:var(--muted);font-weight:400;">0 = all at once</span>
+          </div>
+          <input type="text" id="batch-size" value="0">
         </div>
       </details>
 
@@ -361,7 +392,9 @@ Questions:
 2. Does "privacy-first" resonate or is it table stakes?
 3. "Team analytics" vs "burnout prevention" — which makes you click?
 
-— Maya (flowpulse.io)</textarea>
+If you want to check it out: flowpulse.io — we just opened early access. No credit card required.
+
+— Maya</textarea>
 
       <button id="launch-btn">🚀 Launch Simulation</button>
     </div>
@@ -406,7 +439,7 @@ Questions:
             </div>
 
             <div class="scorecard-section">
-              <h3>Archetype Breakdown</h3>
+              <h3><span data-tip="How each agent persona reacted to your post — positive, neutral, negative, or silent (didn't engage at all)">Archetype Breakdown</span></h3>
               <table class="matrix-table" id="sc-matrix">
                 <thead><tr>
                   <th></th>
@@ -419,18 +452,41 @@ Questions:
               </table>
             </div>
 
-            <div class="scorecard-section">
-              <h3><span data-tip="Aspects of your post that agents praised most often. Higher count = stronger signal that this resonates with your audience.">✅ Strengths</span></h3>
-              <ul id="sc-strengths"></ul>
+            <div class="scorecard-section hidden" id="sc-conversion-section">
+              <h3><span data-tip="Estimated click-through and signup intent based on comment tone and engagement signals, broken down by archetype">Conversion Funnel</span></h3>
+              <div id="sc-conversion"></div>
             </div>
 
-            <div class="scorecard-section">
-              <h3><span data-tip="Concerns and objections raised by agents. Higher count = more agents flagged this as a problem you should address.">❌ Problems</span></h3>
-              <ul id="sc-problems"></ul>
+            <div class="scorecard-section hidden" id="sc-clarity-section">
+              <h3><span data-tip="After the simulation, each agent was asked to describe your product. Shows how many got it right, partially right, or completely wrong">Message Clarity</span></h3>
+              <div id="sc-clarity"></div>
+            </div>
+
+            <div class="scorecard-section hidden" id="sc-objections-section">
+              <h3><span data-tip="Concerns raised by agents, categorized: trust (credibility/data worries), value (why not use X instead), technical (integration/architecture), pricing (cost objections)">Objection Map</span></h3>
+              <div id="sc-objections"></div>
+            </div>
+
+
+
+            <div class="scorecard-section hidden" id="sc-audience-section">
+              <h3><span data-tip="Which persona types resonated most with your post — sorted by positive reaction rate, with comment count and average comment length as engagement depth indicators">Audience Fit</span></h3>
+              <table class="matrix-table" id="sc-audience">
+                <thead>
+                   <tr>
+                    <th>Archetype</th>
+                    <th>Agents</th>
+                    <th>Positive %</th>
+                    <th>Comments</th>
+                    <th>Avg Length</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
             </div>
 
             <div class="scorecard-section hidden" id="sc-features-section">
-              <h3>🔍 Missing Features</h3>
+              <h3><span data-tip="Features or capabilities that agents explicitly asked about or wished the product had — signals gaps in your positioning or actual product">🔍 Missing Features</span></h3>
               <ul id="sc-features"></ul>
             </div>
 
@@ -460,6 +516,7 @@ Questions:
     const apiKeyInput = document.getElementById('api-key');
     const baseUrlInput = document.getElementById('base-url');
     const llmModelInput = document.getElementById('llm-model');
+    const batchSizeInput = document.getElementById('batch-size');
     const launchBtn = document.getElementById('launch-btn');
     
     const progressPanel = document.getElementById('progress-panel');
@@ -652,25 +709,46 @@ Questions:
       return '#757575';
     }
 
+    function resolveArchetype(author, profiles) {
+      if (!profiles || !author) return 'Unknown';
+      const lower = (author || '').toLowerCase();
+      for (const [key, val] of Object.entries(profiles)) {
+        if (lower.includes(key) || lower === val.username) return val.archetype;
+        if (val.username && lower.includes(val.username)) return val.archetype;
+      }
+      for (const [key, val] of Object.entries(profiles)) {
+        const parts = val.username.split('_');
+        if (parts.some(p => p.length > 2 && lower.includes(p))) return val.archetype;
+      }
+      return 'Unknown';
+    }
+
     function renderThread(data) {
       if (!data || !data.comments) return;
       
-      document.getElementById('stat-score').textContent = data.score || 0;
-      document.getElementById('stat-comments').textContent = data.comments.length || 0;
-      document.getElementById('stat-agents').textContent = agentsSlider.value; // Approximate
+      const stats = data.stats || {};
+      document.getElementById('stat-score').textContent = stats.score || 0;
+      document.getElementById('stat-comments').textContent = stats.total_comments || data.comments.length || 0;
+      document.getElementById('stat-agents').textContent = stats.commenting_agents + '/' + stats.total_agents;
       
       threadContainer.innerHTML = '';
       
-      // Sort comments by time if available
-      const comments = data.comments.sort((a, b) => (a.time || 0) - (b.time || 0));
+      // Sort comments by created_at
+      const comments = [...data.comments].sort((a, b) =>
+        new Date(a.created_at || 0) - new Date(b.created_at || 0)
+      );
       
       comments.forEach(c => {
         const div = document.createElement('div');
         div.className = 'comment';
         
-        const voteScore = c.upvotes ? c.upvotes - (c.downvotes || 0) : Math.floor(Math.random() * 10);
-        const archetype = c.archetype || 'User';
+        const voteScore = (c.likes || 0) - (c.dislikes || 0);
+        const archetype = resolveArchetype(c.author, data.profiles);
         const flairColor = getFlairColor(archetype);
+        
+        const timeStr = c.created_at
+          ? new Date(c.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})
+          : 'just now';
         
         div.innerHTML = `
           <div class="vote-column">
@@ -680,11 +758,11 @@ Questions:
           </div>
           <div class="comment-content">
             <div class="comment-meta">
-              <span class="author">${c.author || 'User'}</span>
+              <span class="author">${escapeHTML(c.author || 'User')}</span>
               <span class="flair" style="background-color: ${flairColor}">${archetype}</span>
-              <span class="time">${c.time ? c.time + 'h ago' : 'just now'}</span>
+              <span class="time">${timeStr}</span>
             </div>
-            <div class="text">${escapeHTML(c.text || c.content || '')}</div>
+            <div class="text">${escapeHTML(c.content || '')}</div>
           </div>
         `;
         threadContainer.appendChild(div);
@@ -696,7 +774,11 @@ Questions:
       analyzeBtn.innerHTML = '<span class="spinner"></span> Analyzing...';
 
       try {
-        const data = await fetch('/api/scorecard/run', {method: 'POST'}).then(r => r.json());
+        const data = await fetch('/api/scorecard/run', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({batch_size: parseInt(batchSizeInput.value) || 0}),
+        }).then(r => r.json());
         analyzeBtn.style.display = 'none';
         scorecardEl.classList.remove('hidden');
         renderScorecard(data);
@@ -707,17 +789,7 @@ Questions:
       }
     });
 
-    // Auto-load mock scorecard for fast UI iteration
-    (async () => {
-      try {
-        const mock = await fetch('/mock_scorecard.json').then(r => r.json());
-        resultsPanel.classList.remove('hidden');
-        document.querySelectorAll('.tab')[1].click();
-        analyzeBtn.style.display = 'none';
-        scorecardEl.classList.remove('hidden');
-        renderScorecard(mock);
-      } catch (e) {}
-    })();
+
 
     function renderScItem(item) {
       const quotes = item.quotes || [];
@@ -765,20 +837,132 @@ Questions:
         tbody.appendChild(row);
       }
 
-      const strengthsEl = document.getElementById('sc-strengths');
-      strengthsEl.innerHTML = '';
-      if (data.strengths.length) {
-        data.strengths.forEach(s => { strengthsEl.innerHTML += renderScItem(s); });
-      } else {
-        strengthsEl.innerHTML = '<li style="color:var(--muted)">None detected</li>';
+      const funnelSection = document.getElementById('sc-conversion-section');
+      const funnelEl = document.getElementById('sc-conversion');
+      if (data.click_through && data.signup_funnel) {
+        funnelSection.classList.remove('hidden');
+        let clickPills = '';
+        if (data.click_through.by_archetype) {
+          for (const [arch, pct] of Object.entries(data.click_through.by_archetype)) {
+            if (pct > 0) clickPills += '<span class="funnel-pill">' + escapeHTML(arch) + ' ' + pct + '%</span>';
+          }
+        }
+        let signupPills = '';
+        if (data.signup_funnel.by_archetype) {
+          for (const [arch, pct] of Object.entries(data.signup_funnel.by_archetype)) {
+            if (pct > 0) signupPills += '<span class="funnel-pill">' + escapeHTML(arch) + ' ' + pct + '%</span>';
+          }
+        }
+        const ct = data.click_through;
+        const sf = data.signup_funnel;
+        const clickLabel = (ct.count || 0) + ' of ' + (ct.total || '?') + ' agents (' + ct.rate + '%)';
+        const signupLabel = (sf.would_signup_count || 0) + ' of ' + (sf.total || '?') + ' agents (' + sf.would_signup_pct + '%)';
+        funnelEl.innerHTML = 
+          '<div class="funnel-row">' +
+            '<div class="funnel-label"><span>Would Click Link</span><span>' + clickLabel + '</span></div>' +
+            '<div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width: ' + ct.rate + '%; background: var(--success);"></div></div>' +
+            '<div class="funnel-pills">' + clickPills + '</div>' +
+          '</div>' +
+          '<div class="funnel-row">' +
+            '<div class="funnel-label"><span>Would Sign Up</span><span>' + signupLabel + '</span></div>' +
+            '<div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width: ' + sf.would_signup_pct + '%; background: #2196F3;"></div></div>' +
+            '<div class="funnel-pills">' + signupPills + '</div>' +
+          '</div>';
       }
 
-      const problemsEl = document.getElementById('sc-problems');
-      problemsEl.innerHTML = '';
-      if (data.problems.length) {
-        data.problems.forEach(p => { problemsEl.innerHTML += renderScItem(p); });
-      } else {
-        problemsEl.innerHTML = '<li style="color:var(--muted)">None detected</li>';
+      const claritySection = document.getElementById('sc-clarity-section');
+      const clarityEl = document.getElementById('sc-clarity');
+      if (data.message_clarity) {
+        claritySection.classList.remove('hidden');
+        const mc = data.message_clarity;
+        let html =
+          '<div class="clarity-top">' +
+            '<div class="clarity-score">' + mc.score + '%</div>' +
+            '<div class="clarity-label">accurately described the product</div>' +
+          '</div>' +
+          '<div class="clarity-boxes">' +
+            '<div class="clarity-box clear">Accurate: ' + (mc.accurate || mc.clear || 0) + '</div>' +
+            '<div class="clarity-box partial">Partial: ' + mc.partial + '</div>' +
+            '<div class="clarity-box confused">Wrong: ' + (mc.wrong || mc.confused || 0) + '</div>' +
+          '</div>';
+
+        if (mc.responses && mc.responses.length) {
+          html += '<div style="margin-top: 16px;">';
+          mc.responses.forEach(r => {
+            let color = 'var(--success)';
+            if (r.clarity === 'partial') color = '#f9a825';
+            if (r.clarity === 'wrong') color = 'var(--error)';
+            html +=
+              '<details class="sc-item">' +
+                '<summary>' +
+                  '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:8px;"></span>' +
+                  escapeHTML(r.username) +
+                  ' <span class="freq" style="color:' + color + '">(' + r.clarity + ')</span>' +
+                '</summary>' +
+                '<div class="sc-quote">' + escapeHTML(r.response) + '</div>' +
+              '</details>';
+          });
+          html += '</div>';
+        }
+
+        clarityEl.innerHTML = html;
+      }
+
+      const objSection = document.getElementById('sc-objections-section');
+      const objEl = document.getElementById('sc-objections');
+      if (data.objection_map) {
+        objSection.classList.remove('hidden');
+        objEl.innerHTML = '';
+        if (data.objection_map.length) {
+          data.objection_map.forEach(obj => {
+            let quotesHtml = '';
+            const items = obj.items || [];
+            items.slice(0, 3).forEach(q => {
+              quotesHtml += '<div class="sc-quote"><span class="sc-quote-author">' + escapeHTML(q.author || '') + '</span>: ' + escapeHTML(q.text || '') + '</div>';
+            });
+            
+            let badgeClass = 'badge-technical';
+            if (obj.type === 'trust') badgeClass = 'badge-trust';
+            if (obj.type === 'value') badgeClass = 'badge-value';
+            if (obj.type === 'pricing') badgeClass = 'badge-pricing';
+
+            objEl.innerHTML += 
+              '<div class="sc-item">' +
+                '<details>' +
+                  '<summary>' +
+                    '<span class="objection-badge ' + badgeClass + '">' + escapeHTML(obj.type) + '</span>' +
+                    obj.count + ' objection' + (obj.count !== 1 ? 's' : '') +
+                  '</summary>' +
+                  quotesHtml +
+                '</details>' +
+              '</div>';
+          });
+        } else {
+          objEl.innerHTML = '<div style="color:var(--muted);font-size:13px;">None detected</div>';
+        }
+      }
+
+      const audSection = document.getElementById('sc-audience-section');
+      const audBody = document.querySelector('#sc-audience tbody');
+      if (data.audience_fit) {
+        audSection.classList.remove('hidden');
+        audBody.innerHTML = '';
+        if (data.audience_fit.length) {
+          data.audience_fit.forEach(row => {
+            const tr = document.createElement('tr');
+            let color = 'var(--error)';
+            if (row.positive_rate > 60) color = 'var(--success)';
+            else if (row.positive_rate > 30) color = '#f9a825';
+            
+            tr.innerHTML = 
+              '<td>' + escapeHTML(row.archetype) + '</td>' +
+              '<td>' + (row.agent_count || '') + '</td>' +
+              '<td style="color: ' + color + '; font-weight: bold;">' + (row.comment_count > 0 ? row.positive_rate + '%' : '-') + '</td>' +
+              '<td>' + row.comment_count + '</td>' +
+              '<td>' + (row.avg_length || '-') + '</td>';
+            audBody.appendChild(tr);
+          });
+        }
       }
 
       const featSection = document.getElementById('sc-features-section');
@@ -787,7 +971,7 @@ Questions:
       if (data.missing_features && data.missing_features.length) {
         featSection.classList.remove('hidden');
         data.missing_features.forEach(f => {
-          featEl.innerHTML += '<li>• ' + escapeHTML(f.name) + ' <span class="freq">(' + f.count + '×)</span></li>';
+          featEl.innerHTML += renderScItem(f);
         });
       }
     }
@@ -797,7 +981,11 @@ Questions:
       rewriteBtn.innerHTML = '<span class="spinner"></span> Rewriting...';
 
       try {
-        const data = await fetch('/api/rewrite/run', {method: 'POST'}).then(r => r.json());
+        const data = await fetch('/api/rewrite/run', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({batch_size: parseInt(batchSizeInput.value) || 0}),
+        }).then(r => r.json());
         rewriteResult.classList.remove('hidden');
         improvedPost.value = data.improved_post || '';
         rewriteBtn.style.display = 'none';

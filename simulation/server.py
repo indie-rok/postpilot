@@ -177,11 +177,19 @@ class SimulationCoordinator:
                 stderr=asyncio.subprocess.STDOUT,
                 cwd=str(BASE_DIR),
                 env=run_env,
+                limit=1024 * 1024,
             )
 
             assert process.stdout is not None
             while True:
-                line = await process.stdout.readline()
+                try:
+                    line = await process.stdout.readline()
+                except (ValueError, asyncio.LimitOverrunError):
+                    while True:
+                        chunk = await process.stdout.read(65536)
+                        if not chunk or b"\n" in chunk:
+                            break
+                    continue
                 if not line:
                     break
                 msg = line.decode("utf-8", errors="replace").rstrip()
@@ -308,6 +316,7 @@ def cleanup_previous_run(tag: str) -> None:
     targets = [
         RESULTS_DIR / f"{tag}.db",
         RESULTS_DIR / f"{tag}-thread.html",
+        RESULTS_DIR / f"{tag}_scorecard.json",
         RESULTS_DIR / "analysis.md",
         RESULTS_DIR / "improved-post.md",
     ]
@@ -407,28 +416,47 @@ async def analyze_tag(tag: str) -> dict[str, str]:
     return {"analysis": analysis, "improved_post": improved_post}
 
 
+class BatchConfig(BaseModel):
+    batch_size: int = 0
+
+
 @app.post("/api/scorecard/{tag}")
-async def get_scorecard(tag: str):
+async def get_scorecard(tag: str, config: BatchConfig = BatchConfig()):
     db_path = RESULTS_DIR / f"{tag}.db"
     if not db_path.exists():
         raise HTTPException(
             status_code=404, detail=f"Results not found for tag '{tag}'"
         )
 
+    cache_path = RESULTS_DIR / f"{tag}_scorecard.json"
+    if cache_path.exists():
+        import json
+
+        return JSONResponse(content=json.loads(cache_path.read_text()))
+
     profiles_path = resolve_profiles_for_tag(tag)
     saved = _apply_llm_config(coordinator._llm_config)
     try:
         result = await asyncio.to_thread(
-            scorecard_module.generate_scorecard, str(db_path), str(profiles_path)
+            scorecard_module.generate_scorecard,
+            str(db_path),
+            str(profiles_path),
+            batch_size=config.batch_size,
         )
     finally:
         _restore_env(saved)
+
+    import json
+
+    cache_path.write_text(json.dumps(result, ensure_ascii=False, indent=2))
 
     return JSONResponse(content=result)
 
 
 @app.post("/api/rewrite/{tag}")
-async def rewrite_post_endpoint(tag: str) -> dict[str, str]:
+async def rewrite_post_endpoint(
+    tag: str, config: BatchConfig = BatchConfig()
+) -> dict[str, str]:
     db_path = RESULTS_DIR / f"{tag}.db"
     if not db_path.exists():
         raise HTTPException(
@@ -440,7 +468,10 @@ async def rewrite_post_endpoint(tag: str) -> dict[str, str]:
         original_post = await asyncio.to_thread(fetch_original_post, str(db_path))
         profiles_path = resolve_profiles_for_tag(tag)
         scorecard = await asyncio.to_thread(
-            scorecard_module.generate_scorecard, str(db_path), str(profiles_path)
+            scorecard_module.generate_scorecard,
+            str(db_path),
+            str(profiles_path),
+            batch_size=config.batch_size,
         )
         analysis_context = json.dumps(scorecard, indent=2, default=str)
         improved_post = await asyncio.to_thread(

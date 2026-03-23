@@ -216,18 +216,36 @@ def test_classify_comments_returns_per_comment(monkeypatch):
                 {
                     "comment_id": 1,
                     "sentiment": "negative",
-                    "topics": ["pricing"],
+                    "topics": ["pricing too high for startups"],
                     "is_objection": True,
                     "is_feature_request": False,
                     "feature_requested": None,
+                    "objection_type": "pricing",
+                    "would_click_link": "unlikely",
+                    "would_signup": "no",
+                    "understands_product": "yes",
+                    "would_recommend": "no",
+                    "is_question": False,
+                    "mentions_competitor": False,
+                    "competitor_name": None,
+                    "mentions_pricing": True,
                 },
                 {
                     "comment_id": 2,
                     "sentiment": "positive",
-                    "topics": ["privacy"],
+                    "topics": ["privacy-first approach praised"],
                     "is_objection": False,
                     "is_feature_request": False,
                     "feature_requested": None,
+                    "objection_type": None,
+                    "would_click_link": "yes",
+                    "would_signup": "likely",
+                    "understands_product": "yes",
+                    "would_recommend": "yes",
+                    "is_question": False,
+                    "mentions_competitor": False,
+                    "competitor_name": None,
+                    "mentions_pricing": False,
                 },
             ]
         }
@@ -253,6 +271,9 @@ def test_classify_comments_returns_per_comment(monkeypatch):
     assert result[0]["sentiment"] == "negative"
     assert result[1]["sentiment"] == "positive"
     assert result[0]["is_objection"] is True
+    assert result[0]["objection_type"] == "pricing"
+    assert result[1]["would_click_link"] == "yes"
+    assert result[0]["mentions_pricing"] is True
 
 
 def test_compute_grade_all_positive():
@@ -339,34 +360,70 @@ def test_build_scorecard_structure():
         {
             "comment_id": 1,
             "sentiment": "negative",
-            "topics": ["pricing"],
+            "topics": ["pricing too high"],
             "is_objection": True,
             "is_feature_request": False,
             "feature_requested": None,
+            "objection_type": "pricing",
+            "would_click_link": "unlikely",
+            "would_signup": "no",
+            "understands_product": "yes",
+            "would_recommend": "no",
+            "is_question": False,
+            "mentions_competitor": True,
+            "competitor_name": "OfficeVibe",
+            "mentions_pricing": True,
         },
         {
             "comment_id": 2,
             "sentiment": "positive",
-            "topics": ["privacy"],
+            "topics": ["privacy praised"],
             "is_objection": False,
             "is_feature_request": False,
             "feature_requested": None,
+            "objection_type": None,
+            "would_click_link": "yes",
+            "would_signup": "likely",
+            "understands_product": "yes",
+            "would_recommend": "yes",
+            "is_question": False,
+            "mentions_competitor": False,
+            "competitor_name": None,
+            "mentions_pricing": False,
         },
         {
             "comment_id": 3,
             "sentiment": "neutral",
-            "topics": ["integration"],
+            "topics": ["integration needs"],
             "is_objection": False,
             "is_feature_request": True,
             "feature_requested": "Slack integration",
+            "objection_type": None,
+            "would_click_link": "likely",
+            "would_signup": "unlikely",
+            "understands_product": "partially",
+            "would_recommend": "maybe",
+            "is_question": True,
+            "mentions_competitor": False,
+            "competitor_name": None,
+            "mentions_pricing": False,
         },
         {
             "comment_id": 4,
             "sentiment": "positive",
-            "topics": ["ux", "check-ins"],
+            "topics": ["ux praised", "check-ins clever"],
             "is_objection": False,
             "is_feature_request": False,
             "feature_requested": None,
+            "objection_type": None,
+            "would_click_link": "yes",
+            "would_signup": "yes",
+            "understands_product": "yes",
+            "would_recommend": "yes",
+            "is_question": False,
+            "mentions_competitor": False,
+            "competitor_name": None,
+            "mentions_pricing": False,
         },
     ]
     comment_archetypes = {
@@ -390,6 +447,31 @@ def test_build_scorecard_structure():
     assert sc["matrix"]["Lurker"]["silent"] == 1
     assert len(sc["themes"]) > 0
     assert any(f["name"] == "Slack integration" for f in sc["missing_features"])
+
+    assert "click_through" in sc
+    assert sc["click_through"]["count"] == 3
+    assert sc["click_through"]["total"] == 5
+    assert sc["click_through"]["rate"] == 60.0
+    assert "signup_funnel" in sc
+    assert "message_clarity" in sc
+    assert sc["message_clarity"]["clear"] == 3
+    assert sc["message_clarity"]["partial"] == 1
+    assert sc["message_clarity"]["confused"] == 0
+    assert "objection_map" in sc
+    assert len(sc["objection_map"]) == 1
+    assert sc["objection_map"][0]["type"] == "pricing"
+    assert "competitive_mentions" in sc
+    assert sc["competitive_mentions"][0]["name"] == "OfficeVibe"
+    assert "question_density" in sc
+    assert sc["question_density"]["count"] == 1
+    assert "pricing_sensitivity" in sc
+    assert sc["pricing_sensitivity"]["mentioned"] == 1
+    assert "word_of_mouth" in sc
+    assert "hook_effectiveness" in sc
+    assert "audience_fit" in sc
+    assert "sentiment_drift" in sc
+    assert "engagement_decay" in sc
+    assert "engagement_depth" in sc
 
 
 def test_build_scorecard_no_comments():
@@ -433,34 +515,70 @@ def test_generate_scorecard_full(test_db, profiles_path, monkeypatch):
                 {
                     "comment_id": 1,
                     "sentiment": "negative",
-                    "topics": ["pricing"],
+                    "topics": ["pricing too steep"],
                     "is_objection": True,
                     "is_feature_request": False,
                     "feature_requested": None,
+                    "objection_type": "pricing",
+                    "would_click_link": "unlikely",
+                    "would_signup": "no",
+                    "understands_product": "yes",
+                    "would_recommend": "no",
+                    "is_question": False,
+                    "mentions_competitor": False,
+                    "competitor_name": None,
+                    "mentions_pricing": True,
                 },
                 {
                     "comment_id": 2,
                     "sentiment": "positive",
-                    "topics": ["privacy"],
+                    "topics": ["privacy approach"],
                     "is_objection": False,
                     "is_feature_request": False,
                     "feature_requested": None,
+                    "objection_type": None,
+                    "would_click_link": "yes",
+                    "would_signup": "likely",
+                    "understands_product": "yes",
+                    "would_recommend": "yes",
+                    "is_question": False,
+                    "mentions_competitor": False,
+                    "competitor_name": None,
+                    "mentions_pricing": False,
                 },
                 {
                     "comment_id": 3,
                     "sentiment": "neutral",
-                    "topics": ["integration"],
+                    "topics": ["integration question"],
                     "is_objection": False,
                     "is_feature_request": True,
                     "feature_requested": "Slack integration",
+                    "objection_type": None,
+                    "would_click_link": "likely",
+                    "would_signup": "unlikely",
+                    "understands_product": "partially",
+                    "would_recommend": "maybe",
+                    "is_question": True,
+                    "mentions_competitor": False,
+                    "competitor_name": None,
+                    "mentions_pricing": False,
                 },
                 {
                     "comment_id": 4,
                     "sentiment": "positive",
-                    "topics": ["ux"],
+                    "topics": ["ux praised"],
                     "is_objection": False,
                     "is_feature_request": False,
                     "feature_requested": None,
+                    "objection_type": None,
+                    "would_click_link": "yes",
+                    "would_signup": "yes",
+                    "understands_product": "yes",
+                    "would_recommend": "yes",
+                    "is_question": False,
+                    "mentions_competitor": False,
+                    "competitor_name": None,
+                    "mentions_pricing": False,
                 },
             ]
         }
@@ -473,3 +591,10 @@ def test_generate_scorecard_full(test_db, profiles_path, monkeypatch):
     assert isinstance(sc["score"], float)
     assert len(sc["matrix"]) > 0
     assert sc["metrics"]["comment_count"] == 4
+    assert "click_through" in sc
+    assert "signup_funnel" in sc
+    assert "message_clarity" in sc
+    assert "objection_map" in sc
+    assert "engagement_decay" in sc
+    assert "engagement_depth" in sc
+    assert "audience_fit" in sc
