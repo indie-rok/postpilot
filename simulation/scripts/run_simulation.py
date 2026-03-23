@@ -1,3 +1,5 @@
+# pyright: reportMissingImports=false, reportImplicitRelativeImport=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportUnknownArgumentType=false, reportUnknownParameterType=false, reportMissingParameterType=false, reportAny=false, reportExplicitAny=false, reportUnusedImport=false, reportUnusedVariable=false, reportUnusedCallResult=false
+
 """Core simulation runner — loads agents, seeds post, runs OASIS Reddit sim.
 
 MiroFish-style time-based scheduling: 1 round = 1 simulated hour.
@@ -11,7 +13,8 @@ import json
 import os
 import random
 import sys
-from typing import Any
+from datetime import datetime, timezone
+from typing import Any, cast
 
 from dotenv import load_dotenv
 
@@ -25,32 +28,39 @@ import oasis
 from oasis import ActionType, LLMAction, ManualAction
 
 from config.simulation_config import PLATFORM_CONFIG, ACTIVITY_CONFIGS, TIME_CONFIG
+from db import (
+    extract_oasis_results,
+    get_agent_mapping,
+    insert_interview,
+    update_oasis_user_id,
+    update_run_status,
+)
 
 
 def emit_progress(**kwargs: int | str) -> None:
     print(f"PROGRESS:{json.dumps(kwargs)}", flush=True)
 
 
-def load_profiles(profiles_path: str) -> list[dict]:
+SIM_TIME_CONFIG = cast(dict[str, Any], TIME_CONFIG)
+SIM_ACTIVITY_CONFIGS = cast(dict[str, dict[str, Any]], ACTIVITY_CONFIGS)
+
+
+def load_profiles(profiles_path: str) -> list[dict[str, Any]]:
     with open(profiles_path) as f:
-        return json.load(f)
+        return cast(list[dict[str, Any]], json.load(f))
 
 
-def get_archetype(username: str) -> str:
-    archetype_map = {
-        "founder_early": "saas_founder_early",
-        "founder_scaled": "saas_founder_scaled",
-        "skeptic": "skeptical_pm",
-        "indie": "indie_hacker",
-        "hr": "hr_people_ops",
-        "lurker": "lurker",
-        "regular": "community_regular",
-        "vc": "vc_growth",
-    }
-    for prefix, archetype in archetype_map.items():
-        if prefix in username:
-            return archetype
-    return "saas_founder_early"
+# Mapping from display archetype names (from DB) to config keys
+ARCHETYPE_TO_CONFIG_KEY = {
+    "Early Founder": "saas_founder_early",
+    "Scaled Founder": "saas_founder_scaled",
+    "Skeptical PM": "skeptical_pm",
+    "Indie Hacker": "indie_hacker",
+    "HR/People Ops": "hr_people_ops",
+    "Lurker": "lurker",
+    "Community Regular": "community_regular",
+    "VC/Growth": "vc_growth",
+}
 
 
 def create_model():
@@ -77,20 +87,27 @@ def load_post_content(post_path: str) -> str:
 
 
 def get_time_multiplier(hour: int) -> float:
-    if hour in TIME_CONFIG["peak_hours"]:
-        return TIME_CONFIG["peak_multiplier"]
-    if hour in TIME_CONFIG["off_peak_hours"]:
-        return TIME_CONFIG["off_peak_multiplier"]
-    return TIME_CONFIG["normal_multiplier"]
+    peak_hours = cast(list[int], SIM_TIME_CONFIG["peak_hours"])
+    off_peak_hours = cast(list[int], SIM_TIME_CONFIG["off_peak_hours"])
+
+    if hour in peak_hours:
+        return float(SIM_TIME_CONFIG["peak_multiplier"])
+    if hour in off_peak_hours:
+        return float(SIM_TIME_CONFIG["off_peak_multiplier"])
+    return float(SIM_TIME_CONFIG["normal_multiplier"])
 
 
-def get_active_agents_for_hour(agents: list, hour: int) -> list:
+def get_active_agents_for_hour(
+    agents: list[tuple[int, Any]],
+    hour: int,
+    username_to_archetype: dict[str, str] | None = None,
+) -> list[tuple[int, Any]]:
     """MiroFish-style: randomly select a subset of agents based on time-of-day."""
     multiplier = get_time_multiplier(hour % 24)
     target_count = int(
         random.uniform(
-            TIME_CONFIG["agents_per_hour_min"],
-            TIME_CONFIG["agents_per_hour_max"],
+            float(SIM_TIME_CONFIG["agents_per_hour_min"]),
+            float(SIM_TIME_CONFIG["agents_per_hour_max"]),
         )
         * multiplier
     )
@@ -98,8 +115,13 @@ def get_active_agents_for_hour(agents: list, hour: int) -> list:
     candidates = []
     for agent_id, agent in agents:
         username = agent.user_info.user_name or agent.user_info.name or ""
-        archetype = get_archetype(username)
-        config = ACTIVITY_CONFIGS.get(archetype)
+        display_archetype = (
+            username_to_archetype.get(username, "Community Regular")
+            if username_to_archetype
+            else "Community Regular"
+        )
+        config_key = ARCHETYPE_TO_CONFIG_KEY.get(display_archetype, "community_regular")
+        config = SIM_ACTIVITY_CONFIGS.get(config_key)
         if not config:
             candidates.append((agent_id, agent))
             continue
@@ -117,14 +139,24 @@ def get_active_agents_for_hour(agents: list, hour: int) -> list:
     return selected
 
 
-async def run_simulation(post_path, profiles_path, tag, results_dir):
+async def run_simulation(
+    post_path,
+    profiles_path,
+    tag,
+    results_dir,
+    run_id=None,
+    app_db_path=None,
+):
     print(f"=== Starting simulation: {tag} ===")
 
     profiles = load_profiles(profiles_path)
+    username_to_archetype = {
+        p["username"]: p.get("archetype", "Community Regular") for p in profiles
+    }
     post_content = load_post_content(post_path)
     model = create_model()
-    total_hours = TIME_CONFIG["total_hours"]
-    minutes_per_round = TIME_CONFIG["minutes_per_round"]
+    total_hours = int(SIM_TIME_CONFIG["total_hours"])
+    minutes_per_round = int(SIM_TIME_CONFIG["minutes_per_round"])
     total_rounds = (total_hours * 60) // minutes_per_round
 
     llm_calls = 0
@@ -156,6 +188,22 @@ async def run_simulation(post_path, profiles_path, tag, results_dir):
     print(f"Environment initialized. DB: {db_path}")
 
     agents = list(env.agent_graph.get_agents())
+    oasis_to_run_agent: dict[int, int] = {}
+    if app_db_path is not None and run_id is not None:
+        oasis_username_to_agent_id: dict[str, int] = {}
+        for oasis_agent_id, agent in agents:
+            username = agent.user_info.user_name or agent.user_info.name or ""
+            if username:
+                oasis_username_to_agent_id[username] = int(oasis_agent_id)
+
+        run_agent_mapping = get_agent_mapping(app_db_path, run_id)
+        for username, oasis_agent_id in oasis_username_to_agent_id.items():
+            run_agent_id = run_agent_mapping.get(username)
+            if run_agent_id is None:
+                continue
+            update_oasis_user_id(app_db_path, run_agent_id, oasis_agent_id)
+            oasis_to_run_agent[oasis_agent_id] = run_agent_id
+
     op_agent_id, op_agent = agents[0]
 
     seed_action: dict[Any, Any] = {
@@ -165,9 +213,11 @@ async def run_simulation(post_path, profiles_path, tag, results_dir):
         )
     }
     await env.step(seed_action)
+    if app_db_path is not None and run_id is not None:
+        update_run_status(app_db_path, run_id, "running")
     print(f"Post seeded by {op_agent.user_info.user_name or op_agent.user_info.name}")
 
-    start_hour = TIME_CONFIG.get("start_hour", 9)
+    start_hour = int(SIM_TIME_CONFIG.get("start_hour", 9))
 
     engaged_agent_ids: set[int] = set()
 
@@ -178,7 +228,9 @@ async def run_simulation(post_path, profiles_path, tag, results_dir):
             f"\n--- Round {round_num + 1}/{total_rounds} (simulated {simulated_hour:02d}:{simulated_minutes % 60:02d}) ---"
         )
 
-        active = get_active_agents_for_hour(agents, simulated_hour)
+        active = get_active_agents_for_hour(
+            agents, simulated_hour, username_to_archetype
+        )
         print(f"Active agents: {len(active)}/{len(agents)}")
 
         simulated_time = f"{simulated_hour:02d}:{simulated_minutes % 60:02d}"
@@ -202,10 +254,29 @@ async def run_simulation(post_path, profiles_path, tag, results_dir):
 
         llm_calls += len(active)
 
+    if app_db_path is not None and run_id is not None:
+        extract_oasis_results(app_db_path, db_path, run_id, oasis_to_run_agent)
+
     print(f"\n=== Simulation complete: {tag} ===")
     print(f"Results saved to: {db_path}")
 
-    interviews, llm_calls = await run_interviews(agents, engaged_agent_ids, llm_calls)
+    interviews, llm_calls = await run_interviews(
+        agents,
+        engaged_agent_ids,
+        llm_calls,
+        app_db_path=app_db_path,
+        run_id=run_id,
+        oasis_to_run_agent=oasis_to_run_agent,
+        username_to_archetype=username_to_archetype,
+    )
+    if app_db_path is not None and run_id is not None:
+        update_run_status(
+            app_db_path,
+            run_id,
+            "complete",
+            completed_at=datetime.now(timezone.utc).isoformat(),
+        )
+
     interviews_path = os.path.join(results_dir, f"{tag}_interviews.json")
     with open(interviews_path, "w") as f:
         json.dump(interviews, f, indent=2, ensure_ascii=False)
@@ -227,8 +298,14 @@ INTERVIEW_PROMPT = (
 
 
 async def run_interviews(
-    agents: list, engaged_ids: set[int], llm_calls: int = 0
-) -> tuple[list[dict], int]:
+    agents: list[tuple[int, Any]],
+    engaged_ids: set[int],
+    llm_calls: int = 0,
+    app_db_path: str | None = None,
+    run_id: int | None = None,
+    oasis_to_run_agent: dict[int, int] | None = None,
+    username_to_archetype: dict[str, str] | None = None,
+) -> tuple[list[dict[str, Any]], int]:
     print("\n--- Running post-simulation interviews ---")
     skipped = [aid for aid, _ in agents if aid not in engaged_ids]
     if skipped:
@@ -245,18 +322,29 @@ async def run_interviews(
         if agent_id not in engaged_ids:
             continue
         username = agent.user_info.user_name or agent.user_info.name or ""
+        agent_id_for_db = None
+        if oasis_to_run_agent is not None:
+            agent_id_for_db = oasis_to_run_agent.get(agent_id)
         try:
             response = await agent.perform_interview(INTERVIEW_PROMPT)
+            response_text = response.get("content", "")
+            display_archetype = (
+                username_to_archetype.get(username, "Community Regular")
+                if username_to_archetype
+                else "Unknown"
+            )
             results.append(
                 {
                     "user_id": agent_id,
                     "username": username,
-                    "archetype": get_archetype(username),
-                    "response": response.get("content", ""),
+                    "archetype": display_archetype,
+                    "response": response_text,
                     "success": response.get("success", False),
                 }
             )
             print(f"  Interviewed {username}: {response.get('content', '')[:80]}...")
+            if app_db_path is not None and run_id is not None:
+                insert_interview(app_db_path, run_id, agent_id_for_db, response_text)
             interview_idx += 1
             llm_calls += 1
             emit_progress(
@@ -268,15 +356,23 @@ async def run_interviews(
             )
         except Exception as exc:
             print(f"  Interview failed for {username}: {exc}")
+            response_text = ""
+            display_archetype = (
+                username_to_archetype.get(username, "Community Regular")
+                if username_to_archetype
+                else "Unknown"
+            )
             results.append(
                 {
                     "user_id": agent_id,
                     "username": username,
-                    "archetype": get_archetype(username),
-                    "response": "",
+                    "archetype": display_archetype,
+                    "response": response_text,
                     "success": False,
                 }
             )
+            if app_db_path is not None and run_id is not None:
+                insert_interview(app_db_path, run_id, agent_id_for_db, response_text)
             interview_idx += 1
             llm_calls += 1
             emit_progress(
@@ -307,6 +403,8 @@ def main():
         default=os.path.join(os.path.dirname(__file__), "..", "results"),
         help="Directory for result DBs",
     )
+    parser.add_argument("--run-id", type=int, default=None)
+    parser.add_argument("--app-db", default=None)
     args = parser.parse_args()
 
     os.makedirs(args.results_dir, exist_ok=True)
@@ -317,6 +415,8 @@ def main():
             profiles_path=args.profiles,
             tag=args.tag,
             results_dir=args.results_dir,
+            run_id=args.run_id,
+            app_db_path=args.app_db,
         )
     )
 
