@@ -318,6 +318,143 @@ def get_agent_mapping(db_path: str, run_id: int) -> dict[str, int]:
         conn.close()
 
 
+def extract_oasis_results(
+    app_db_path: str,
+    oasis_db_path: str,
+    run_id: int,
+    agent_mapping: dict[int, int],
+) -> None:
+    app_conn = get_connection(app_db_path)
+    oasis_conn = sqlite3.connect(oasis_db_path)
+    oasis_conn.row_factory = sqlite3.Row
+    try:
+        comments = oasis_conn.execute(
+            "SELECT comment_id, user_id, content, created_at FROM comment"
+        ).fetchall()
+
+        inserted_comment_rows: list[tuple[int, int]] = []
+        for comment in comments:
+            oasis_user_id = int(comment["user_id"])
+            agent_id = agent_mapping.get(oasis_user_id)
+            if agent_id is None:
+                continue
+
+            cur = app_conn.execute(
+                """
+                INSERT INTO run_comment (run_id, agent_id, content, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (run_id, agent_id, str(comment["content"]), comment["created_at"]),
+            )
+            if cur.lastrowid is None:
+                continue
+            inserted_comment_rows.append(
+                (int(cur.lastrowid), int(comment["comment_id"]))
+            )
+
+        for run_comment_id, oasis_comment_id in inserted_comment_rows:
+            like_row = oasis_conn.execute(
+                "SELECT COUNT(*) AS count FROM comment_like WHERE comment_id = ?",
+                (oasis_comment_id,),
+            ).fetchone()
+            dislike_row = oasis_conn.execute(
+                "SELECT COUNT(*) AS count FROM comment_dislike WHERE comment_id = ?",
+                (oasis_comment_id,),
+            ).fetchone()
+            likes = int(like_row["count"]) if like_row is not None else 0
+            dislikes = int(dislike_row["count"]) if dislike_row is not None else 0
+
+            _ = app_conn.execute(
+                "UPDATE run_comment SET likes = ?, dislikes = ? WHERE id = ?",
+                (likes, dislikes, run_comment_id),
+            )
+
+        post_likes_row = oasis_conn.execute(
+            'SELECT COUNT(*) AS count FROM "like"'
+        ).fetchone()
+        post_dislikes_row = oasis_conn.execute(
+            "SELECT COUNT(*) AS count FROM dislike"
+        ).fetchone()
+        post_likes = int(post_likes_row["count"]) if post_likes_row is not None else 0
+        post_dislikes = (
+            int(post_dislikes_row["count"]) if post_dislikes_row is not None else 0
+        )
+
+        _ = app_conn.execute(
+            "UPDATE run SET post_likes = ?, post_dislikes = ? WHERE id = ?",
+            (post_likes, post_dislikes, run_id),
+        )
+
+        engaged_rows = oasis_conn.execute(
+            """
+            SELECT DISTINCT user_id
+            FROM trace
+            WHERE action NOT IN ('sign_up', 'refresh', 'do_nothing', 'interview')
+            """
+        ).fetchall()
+
+        for row in engaged_rows:
+            agent_id = agent_mapping.get(int(row["user_id"]))
+            if agent_id is None:
+                continue
+            _ = app_conn.execute(
+                "UPDATE run_agent SET engaged = 1 WHERE id = ? AND run_id = ?",
+                (agent_id, run_id),
+            )
+
+        app_conn.commit()
+    finally:
+        oasis_conn.close()
+        app_conn.close()
+
+
+def insert_interview(
+    db_path: str, run_id: int, agent_id: int | None, response: str
+) -> None:
+    if agent_id is None:
+        return
+
+    conn = get_connection(db_path)
+    try:
+        _ = conn.execute(
+            "INSERT INTO run_interview (run_id, agent_id, response) VALUES (?, ?, ?)",
+            (run_id, agent_id, response),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def save_scorecard(
+    db_path: str,
+    run_id: int,
+    score: float,
+    grade: str,
+    summary: str,
+    data_json: str,
+) -> None:
+    conn = get_connection(db_path)
+    try:
+        _ = conn.execute(
+            """
+            INSERT OR REPLACE INTO run_scorecard (
+                run_id, score, grade, summary, data, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                score,
+                grade,
+                summary,
+                data_json,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def select_profiles_for_community(
     db_path: str, community_id: int, count: int
 ) -> list[dict[str, Any]]:

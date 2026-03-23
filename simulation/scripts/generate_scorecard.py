@@ -1,54 +1,37 @@
+# pyright: reportMissingImports=false, reportImplicitRelativeImport=false
+
 from __future__ import annotations
 
 import json
 import os
 import sqlite3
+import sys
 from typing import Any
 
 from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 
-ARCHETYPE_PREFIXES = {
-    "founder_early": "Early Founder",
-    "founder_scaled": "Scaled Founder",
-    "skeptic": "Skeptical PM",
-    "indie": "Indie Hacker",
-    "hr": "HR/People Ops",
-    "lurker": "Lurker",
-    "regular": "Community Regular",
-    "vc": "VC/Growth",
-}
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-SILENT_ACTIONS = {"sign_up", "refresh", "do_nothing", "interview"}
+from db import save_scorecard
 
 
-def _archetype_for(username: str) -> str:
-    for prefix, label in ARCHETYPE_PREFIXES.items():
-        if prefix in username:
-            return label
-    return "Other"
-
-
-def query_engagement_metrics(db_path: str) -> dict[str, Any]:
-    conn = sqlite3.connect(db_path)
+def query_engagement_metrics(app_db_path: str, run_id: int) -> dict[str, Any]:
+    conn = sqlite3.connect(app_db_path)
     cur = conn.cursor()
 
-    cur.execute(
-        "SELECT COALESCE(SUM(num_likes), 0), COALESCE(SUM(num_dislikes), 0) FROM post"
-    )
+    cur.execute("SELECT post_likes, post_dislikes FROM run WHERE id = ?", (run_id,))
     num_likes, num_dislikes = cur.fetchone()
 
-    cur.execute("SELECT COUNT(*) FROM comment")
+    cur.execute("SELECT COUNT(*) FROM run_comment WHERE run_id = ?", (run_id,))
     comment_count = cur.fetchone()[0]
 
-    cur.execute("SELECT COUNT(*) FROM user")
+    cur.execute("SELECT COUNT(*) FROM run_agent WHERE run_id = ?", (run_id,))
     total_agents = cur.fetchone()[0]
 
-    placeholders = ",".join(f"'{a}'" for a in SILENT_ACTIONS)
     cur.execute(
-        f"SELECT COUNT(DISTINCT user_id) FROM trace "
-        f"WHERE action NOT IN ({placeholders})"
+        "SELECT COUNT(*) FROM run_agent WHERE run_id = ? AND engaged = 1", (run_id,)
     )
     engaged_agents = cur.fetchone()[0]
 
@@ -70,68 +53,48 @@ def query_engagement_metrics(db_path: str) -> dict[str, Any]:
 
 
 def query_archetype_participation(
-    db_path: str, profiles_path: str
+    app_db_path: str, run_id: int
 ) -> dict[str, dict[str, Any]]:
-    with open(profiles_path) as f:
-        profiles = json.load(f)
-
-    user_archetype: dict[str, str] = {}
-    for p in profiles:
-        user_archetype[p["username"]] = _archetype_for(p["username"])
-
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(app_db_path)
     cur = conn.cursor()
 
-    cur.execute("SELECT user_id, COALESCE(user_name, name) FROM user")
-    id_to_name: dict[int, str] = {}
-    for uid, uname in cur.fetchall():
-        id_to_name[uid] = uname or ""
-
-    cur.execute("SELECT user_id, action FROM trace")
-    user_actions: dict[int, set[str]] = {}
-    for uid, action in cur.fetchall():
-        user_actions.setdefault(uid, set()).add(action)
-
-    cur.execute("SELECT DISTINCT user_id FROM comment WHERE post_id = 1")
-    commenters = {r[0] for r in cur.fetchall()}
-
-    cur.execute("SELECT DISTINCT user_id FROM 'like'")
-    likers = {r[0] for r in cur.fetchall()}
-
-    cur.execute("SELECT DISTINCT user_id FROM dislike")
-    dislikers = {r[0] for r in cur.fetchall()}
+    cur.execute(
+        """
+        SELECT
+            a.archetype,
+            a.engaged,
+            (
+                SELECT COUNT(*)
+                FROM run_comment c
+                WHERE c.agent_id = a.id
+            ) AS comment_count
+        FROM run_agent a
+        WHERE a.run_id = ?
+        """,
+        (run_id,),
+    )
+    rows = cur.fetchall()
 
     conn.close()
 
     result: dict[str, dict[str, Any]] = {}
 
-    for uid, uname in id_to_name.items():
-        archetype = user_archetype.get(uname, _archetype_for(uname))
-        if archetype not in result:
-            result[archetype] = {
+    for archetype, engaged, comment_count in rows:
+        arch = archetype or "Other"
+        commented = (comment_count or 0) > 0
+        if arch not in result:
+            result[arch] = {
                 "total": 0,
                 "commented": 0,
-                "liked": 0,
-                "disliked": 0,
                 "silent_count": 0,
                 "silent": False,
             }
-        entry = result[archetype]
+        entry = result[arch]
         entry["total"] += 1
 
-        actions = user_actions.get(uid, set())
-        meaningful = actions - SILENT_ACTIONS
-        is_engaged = (
-            bool(meaningful) or uid in commenters or uid in likers or uid in dislikers
-        )
-
-        if uid in commenters:
+        if commented:
             entry["commented"] += 1
-        if uid in likers:
-            entry["liked"] += 1
-        if uid in dislikers:
-            entry["disliked"] += 1
-        if not is_engaged:
+        if not engaged:
             entry["silent_count"] += 1
 
     for entry in result.values():
@@ -140,13 +103,11 @@ def query_archetype_participation(
     return result
 
 
-def query_engagement_timeline(
-    db_path: str,
-) -> list[dict[str, Any]]:
-    conn = sqlite3.connect(db_path)
+def query_engagement_timeline(app_db_path: str, run_id: int) -> list[dict[str, Any]]:
+    conn = sqlite3.connect(app_db_path)
     cur = conn.cursor()
 
-    cur.execute("SELECT MIN(created_at) FROM comment WHERE post_id = 1")
+    cur.execute("SELECT MIN(created_at) FROM run_comment WHERE run_id = ?", (run_id,))
     first_row = cur.fetchone()
     if not first_row or not first_row[0]:
         conn.close()
@@ -156,35 +117,27 @@ def query_engagement_timeline(
         "SELECT "
         "  CAST((julianday(created_at) - julianday(?)) * 24 AS INTEGER) AS hour_offset, "
         "  COUNT(*) AS cnt "
-        "FROM comment WHERE post_id = 1 "
+        "FROM run_comment WHERE run_id = ? "
         "GROUP BY hour_offset ORDER BY hour_offset",
-        (first_row[0],),
+        (first_row[0], run_id),
     )
     timeline = [{"hour": row[0], "comments": row[1]} for row in cur.fetchall()]
     conn.close()
     return timeline
 
 
-def query_engagement_depth(
-    db_path: str, profiles_path: str
-) -> dict[str, dict[str, Any]]:
-    with open(profiles_path) as f:
-        profiles = json.load(f)
-
-    name_to_archetype: dict[str, str] = {}
-    for p in profiles:
-        name_to_archetype[p["username"]] = _archetype_for(p["username"])
-
-    conn = sqlite3.connect(db_path)
+def query_engagement_depth(app_db_path: str, run_id: int) -> dict[str, dict[str, Any]]:
+    conn = sqlite3.connect(app_db_path)
     cur = conn.cursor()
     cur.execute(
-        "SELECT COALESCE(u.user_name, u.name), LENGTH(c.content) "
-        "FROM comment c JOIN user u ON c.user_id = u.user_id "
-        "WHERE c.post_id = 1"
+        "SELECT a.archetype, LENGTH(c.content) "
+        "FROM run_comment c JOIN run_agent a ON c.agent_id = a.id "
+        "WHERE c.run_id = ?",
+        (run_id,),
     )
     arch_lengths: dict[str, list[int]] = {}
-    for uname, length in cur.fetchall():
-        arch = name_to_archetype.get(uname, _archetype_for(uname))
+    for archetype, length in cur.fetchall():
+        arch = archetype or "Other"
         arch_lengths.setdefault(arch, []).append(length or 0)
 
     conn.close()
@@ -731,66 +684,87 @@ def build_scorecard(
 
 
 def fetch_comments_with_archetypes(
-    db_path: str, profiles_path: str
+    app_db_path: str, run_id: int
 ) -> tuple[list[dict[str, Any]], dict[int, str]]:
-    with open(profiles_path) as f:
-        profiles = json.load(f)
-
-    name_to_archetype: dict[str, str] = {}
-    for p in profiles:
-        name_to_archetype[p["username"]] = _archetype_for(p["username"])
-
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(app_db_path)
     cur = conn.cursor()
     cur.execute(
-        "SELECT c.comment_id, c.content, COALESCE(u.user_name, u.name) as author, u.user_id "
-        "FROM comment c JOIN user u ON c.user_id = u.user_id "
-        "WHERE c.post_id = 1 ORDER BY c.created_at"
+        "SELECT c.id, c.content, a.realname, a.archetype "
+        "FROM run_comment c JOIN run_agent a ON c.agent_id = a.id "
+        "WHERE c.run_id = ? ORDER BY c.created_at",
+        (run_id,),
     )
     comments = []
     comment_archetypes: dict[int, str] = {}
-    for cid, content, author, uid in cur.fetchall():
-        archetype = name_to_archetype.get(author, _archetype_for(author))
+    for cid, content, author, archetype in cur.fetchall():
+        arch = archetype or "Other"
         comments.append(
             {
                 "comment_id": cid,
                 "content": content,
                 "author": author,
-                "archetype": archetype,
+                "archetype": arch,
             }
         )
-        comment_archetypes[cid] = archetype
+        comment_archetypes[cid] = arch
 
     conn.close()
     return comments, comment_archetypes
 
 
-def _load_archetype_bios(profiles_path: str) -> dict[str, str]:
-    with open(profiles_path) as f:
-        profiles = json.load(f)
-
+def _load_archetype_bios(app_db_path: str, run_id: int) -> dict[str, str]:
+    conn = sqlite3.connect(app_db_path)
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT DISTINCT archetype, bio
+        FROM run_agent
+        WHERE run_id = ? AND bio IS NOT NULL
+        """,
+        (run_id,),
+    )
     bios: dict[str, str] = {}
-    for p in profiles:
-        archetype = _archetype_for(p["username"])
-        bio = p.get("bio") or p.get("user_profile", "")
-        if bio and archetype not in bios:
+    for archetype, bio in cur.fetchall():
+        if archetype and bio and archetype not in bios:
             bios[archetype] = bio[:200]
+    conn.close()
     return bios
 
 
-def load_interviews(db_path: str) -> list[dict[str, Any]]:
-    interviews_path = db_path.replace(".db", "_interviews.json")
-    if not os.path.exists(interviews_path):
-        return []
-    with open(interviews_path) as f:
-        return json.load(f)
-
-
-def _extract_post_summary(db_path: str) -> str:
-    """Derive a short product summary from the actual post content in the DB."""
-    conn = sqlite3.connect(db_path)
+def load_interviews(app_db_path: str, run_id: int) -> list[dict[str, Any]]:
+    conn = sqlite3.connect(app_db_path)
     cur = conn.cursor()
-    cur.execute("SELECT content FROM post WHERE post_id = 1")
+    cur.execute(
+        """
+        SELECT ri.response, ri.clarity, ri.would_click, ri.would_signup,
+               a.username, a.archetype
+        FROM run_interview ri
+        JOIN run_agent a ON ri.agent_id = a.id
+        WHERE ri.run_id = ?
+        """,
+        (run_id,),
+    )
+    interviews = [
+        {
+            "username": username,
+            "archetype": archetype,
+            "response": response,
+            "clarity": clarity,
+            "would_click": would_click,
+            "would_signup": would_signup,
+            "success": True,
+        }
+        for response, clarity, would_click, would_signup, username, archetype in cur.fetchall()
+    ]
+    conn.close()
+    return interviews
+
+
+def _extract_post_summary(app_db_path: str, run_id: int) -> str:
+    """Derive a short product summary from the actual post content in the DB."""
+    conn = sqlite3.connect(app_db_path)
+    cur = conn.cursor()
+    cur.execute("SELECT post_content FROM run WHERE id = ?", (run_id,))
     row = cur.fetchone()
     conn.close()
     if not row or not row[0]:
@@ -803,18 +777,6 @@ def _extract_post_summary(db_path: str) -> str:
     if body_preview:
         return f"{title} — {body_preview}"
     return title
-
-
-ARCHETYPE_LABEL_MAP = {
-    "saas_founder_early": "Early Founder",
-    "saas_founder_scaled": "Scaled Founder",
-    "skeptical_pm": "Skeptical PM",
-    "indie_hacker": "Indie Hacker",
-    "hr_people_ops": "HR/People Ops",
-    "lurker": "Lurker",
-    "community_regular": "Community Regular",
-    "vc_growth": "VC/Growth",
-}
 
 
 INTERVIEW_BATCH_SIZE = DEFAULT_BATCH_SIZE
@@ -929,10 +891,7 @@ def classify_interview_clarity(
         if signed_up:
             signup_count += 1
 
-        arch_key = iv.get("archetype", "")
-        arch_label = ARCHETYPE_LABEL_MAP.get(
-            arch_key, _archetype_for(iv.get("username", ""))
-        )
+        arch_label = str(iv.get("archetype") or "Unknown")
         arch_click.setdefault(arch_label, []).append(clicked)
         arch_signup.setdefault(arch_label, []).append(signed_up)
 
@@ -976,18 +935,16 @@ def classify_interview_clarity(
 
 
 def generate_scorecard(
-    db_path: str, profiles_path: str, post_summary: str = "", batch_size: int = 0
+    app_db_path: str, run_id: int, post_summary: str = "", batch_size: int = 0
 ) -> dict[str, Any]:
-    metrics = query_engagement_metrics(db_path)
-    participation = query_archetype_participation(db_path, profiles_path)
-    comments, comment_archetypes = fetch_comments_with_archetypes(
-        db_path, profiles_path
-    )
+    metrics = query_engagement_metrics(app_db_path, run_id)
+    participation = query_archetype_participation(app_db_path, run_id)
+    comments, comment_archetypes = fetch_comments_with_archetypes(app_db_path, run_id)
     classifications = classify_comments(comments, batch_size=batch_size)
-    timeline = query_engagement_timeline(db_path)
-    depth = query_engagement_depth(db_path, profiles_path)
+    timeline = query_engagement_timeline(app_db_path, run_id)
+    depth = query_engagement_depth(app_db_path, run_id)
 
-    interviews = load_interviews(db_path)
+    interviews = load_interviews(app_db_path, run_id)
 
     scorecard = build_scorecard(
         metrics,
@@ -1001,7 +958,7 @@ def generate_scorecard(
 
     if interviews:
         if not post_summary:
-            post_summary = _extract_post_summary(db_path)
+            post_summary = _extract_post_summary(app_db_path, run_id)
         clarity_result = classify_interview_clarity(
             interviews, post_summary, batch_size=batch_size
         )
@@ -1019,5 +976,13 @@ def generate_scorecard(
                 "by_archetype": clarity_result["signup_intent"].get("by_archetype", {}),
             }
 
-    scorecard["archetype_bios"] = _load_archetype_bios(profiles_path)
+    scorecard["archetype_bios"] = _load_archetype_bios(app_db_path, run_id)
+    save_scorecard(
+        app_db_path,
+        run_id,
+        scorecard.get("score", 0.0),
+        scorecard.get("grade", "F"),
+        scorecard.get("summary", ""),
+        json.dumps(scorecard),
+    )
     return scorecard

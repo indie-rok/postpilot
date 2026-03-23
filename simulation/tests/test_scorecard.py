@@ -1,3 +1,5 @@
+# pyright: reportMissingImports=false, reportImplicitRelativeImport=false
+
 import json
 import os
 import sqlite3
@@ -5,129 +7,98 @@ import tempfile
 
 import pytest
 
+from db import get_connection, init_db
+
 
 @pytest.fixture
 def test_db():
     fd, path = tempfile.mkstemp(suffix=".db")
     os.close(fd)
-    conn = sqlite3.connect(path)
+    init_db(path)
+    conn = get_connection(path)
     cur = conn.cursor()
 
-    cur.executescript(
+    cur.execute(
         """
-        CREATE TABLE user (
-            user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            agent_id INTEGER,
-            user_name TEXT,
-            name TEXT,
-            bio TEXT,
-            created_at DATETIME,
-            num_followings INTEGER DEFAULT 0,
-            num_followers INTEGER DEFAULT 0
-        );
-        CREATE TABLE post (
-            post_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            content TEXT DEFAULT '',
-            created_at DATETIME,
-            num_likes INTEGER DEFAULT 0,
-            num_dislikes INTEGER DEFAULT 0,
-            num_shares INTEGER DEFAULT 0
-        );
-        CREATE TABLE comment (
-            comment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            post_id INTEGER,
-            user_id INTEGER,
-            content TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            num_likes INTEGER DEFAULT 0,
-            num_dislikes INTEGER DEFAULT 0
-        );
-        CREATE TABLE trace (
-            user_id INTEGER,
-            created_at DATETIME,
-            action TEXT,
-            info TEXT
-        );
-        CREATE TABLE "like" (
-            like_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            post_id INTEGER,
-            created_at DATETIME
-        );
-        CREATE TABLE dislike (
-            dislike_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            post_id INTEGER,
-            created_at DATETIME
-        );
-    """
+        INSERT INTO run (
+            id, tag, community_id, post_content, post_source, agent_count,
+            total_hours, status, post_likes, post_dislikes, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            1,
+            "test-run",
+            None,
+            "FlowPulse launch post",
+            "manual",
+            5,
+            24,
+            "completed",
+            3,
+            1,
+            "2025-01-01 10:00:00",
+        ),
     )
 
-    cur.execute(
-        "INSERT INTO user VALUES (1, 1, 'skeptic_jordan', 'Jordan Lee', 'Sr PM', '2025-01-01', 0, 0)"
-    )
-    cur.execute(
-        "INSERT INTO user VALUES (2, 2, 'founder_early_alex', 'Alex Chen', 'Founder', '2025-01-01', 0, 0)"
-    )
-    cur.execute(
-        "INSERT INTO user VALUES (3, 3, 'indie_dev_mark', 'Mark Davis', 'Indie Dev', '2025-01-01', 0, 0)"
-    )
-    cur.execute(
-        "INSERT INTO user VALUES (4, 4, 'lurker_sam', 'Sam Wilson', 'Lurker', '2025-01-01', 0, 0)"
-    )
-    cur.execute(
-        "INSERT INTO user VALUES (5, 5, 'hr_sarah', 'Sarah Kim', 'HR Lead', '2025-01-01', 0, 0)"
-    )
+    agent_rows = [
+        (1, 1, "skeptic_jordan", "Jordan Lee", "Skeptical PM", "Sr PM", "persona", 1),
+        (
+            2,
+            1,
+            "founder_early_alex",
+            "Alex Chen",
+            "Early Founder",
+            "Founder",
+            "persona",
+            1,
+        ),
+        (
+            3,
+            1,
+            "indie_dev_mark",
+            "Mark Davis",
+            "Indie Hacker",
+            "Indie Dev",
+            "persona",
+            1,
+        ),
+        (4, 1, "lurker_sam", "Sam Wilson", "Lurker", "Lurker", "persona", 0),
+        (5, 1, "hr_sarah", "Sarah Kim", "HR/People Ops", "HR Lead", "persona", 1),
+    ]
+    for row in agent_rows:
+        cur.execute(
+            """
+            INSERT INTO run_agent (
+                id, run_id, username, realname, archetype, bio, persona, engaged
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            row,
+        )
+
+    comment_rows = [
+        (1, 1, 1, "Pricing seems too high for early stage", "2025-01-01 10:05:00"),
+        (2, 1, 2, "Love the privacy-first approach", "2025-01-01 10:10:00"),
+        (3, 1, 3, "Would love a Slack integration", "2025-01-01 10:15:00"),
+        (4, 1, 5, "The emoji check-ins are clever", "2025-01-01 10:20:00"),
+    ]
+    for cid, run_id, agent_id, content, created_at in comment_rows:
+        cur.execute(
+            """
+            INSERT INTO run_comment (
+                id, run_id, agent_id, content, likes, dislikes, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (cid, run_id, agent_id, content, 0, 0, created_at),
+        )
 
     cur.execute(
-        "INSERT INTO post VALUES (1, 1, 'FlowPulse launch post', '2025-01-01 10:00:00', 3, 1, 0)"
+        """
+        INSERT INTO run_interview (
+            run_id, agent_id, response, clarity, would_click, would_signup
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (1, 1, "Seems like a burnout dashboard for startup teams.", "partial", 1, 0),
     )
-
-    cur.execute(
-        "INSERT INTO comment VALUES (1, 1, 1, 'Pricing seems too high for early stage', '2025-01-01 10:05:00', 1, 0)"
-    )
-    cur.execute(
-        "INSERT INTO comment VALUES (2, 1, 2, 'Love the privacy-first approach', '2025-01-01 10:10:00', 2, 0)"
-    )
-    cur.execute(
-        "INSERT INTO comment VALUES (3, 1, 3, 'Would love a Slack integration', '2025-01-01 10:15:00', 0, 0)"
-    )
-    cur.execute(
-        "INSERT INTO comment VALUES (4, 1, 5, 'The emoji check-ins are clever', '2025-01-01 10:20:00', 1, 0)"
-    )
-
-    cur.execute("INSERT INTO trace VALUES (1, '2025-01-01 10:00:00', 'sign_up', '{}')")
-    cur.execute(
-        "INSERT INTO trace VALUES (1, '2025-01-01 10:05:00', 'create_comment', '{}')"
-    )
-    cur.execute("INSERT INTO trace VALUES (2, '2025-01-01 10:00:00', 'sign_up', '{}')")
-    cur.execute(
-        "INSERT INTO trace VALUES (2, '2025-01-01 10:08:00', 'like_post', '{}')"
-    )
-    cur.execute(
-        "INSERT INTO trace VALUES (2, '2025-01-01 10:10:00', 'create_comment', '{}')"
-    )
-    cur.execute("INSERT INTO trace VALUES (3, '2025-01-01 10:00:00', 'sign_up', '{}')")
-    cur.execute(
-        "INSERT INTO trace VALUES (3, '2025-01-01 10:15:00', 'create_comment', '{}')"
-    )
-    cur.execute("INSERT INTO trace VALUES (4, '2025-01-01 10:00:00', 'sign_up', '{}')")
-    cur.execute("INSERT INTO trace VALUES (4, '2025-01-01 10:12:00', 'refresh', '{}')")
-    cur.execute(
-        "INSERT INTO trace VALUES (4, '2025-01-01 10:13:00', 'do_nothing', '{}')"
-    )
-    cur.execute("INSERT INTO trace VALUES (5, '2025-01-01 10:00:00', 'sign_up', '{}')")
-    cur.execute(
-        "INSERT INTO trace VALUES (5, '2025-01-01 10:20:00', 'create_comment', '{}')"
-    )
-    cur.execute(
-        "INSERT INTO trace VALUES (5, '2025-01-01 10:21:00', 'like_post', '{}')"
-    )
-
-    cur.execute("INSERT INTO 'like' VALUES (1, 2, 1, '2025-01-01 10:08:00')")
-    cur.execute("INSERT INTO 'like' VALUES (2, 5, 1, '2025-01-01 10:21:00')")
-    cur.execute("INSERT INTO dislike VALUES (1, 1, 1, '2025-01-01 10:06:00')")
 
     conn.commit()
     conn.close()
@@ -135,27 +106,10 @@ def test_db():
     os.unlink(path)
 
 
-@pytest.fixture
-def profiles_path():
-    fd, path = tempfile.mkstemp(suffix=".json")
-    os.close(fd)
-    profiles = [
-        {"username": "skeptic_jordan", "realname": "Jordan Lee", "bio": "Sr PM"},
-        {"username": "founder_early_alex", "realname": "Alex Chen", "bio": "Founder"},
-        {"username": "indie_dev_mark", "realname": "Mark Davis", "bio": "Indie Dev"},
-        {"username": "lurker_sam", "realname": "Sam Wilson", "bio": "Lurker"},
-        {"username": "hr_sarah", "realname": "Sarah Kim", "bio": "HR Lead"},
-    ]
-    with open(path, "w") as f:
-        json.dump(profiles, f)
-    yield path
-    os.unlink(path)
-
-
 def test_query_engagement_metrics(test_db):
     from scripts.generate_scorecard import query_engagement_metrics
 
-    m = query_engagement_metrics(test_db)
+    m = query_engagement_metrics(test_db, 1)
     assert m["post_score"] == 2
     assert m["num_likes"] == 3
     assert m["num_dislikes"] == 1
@@ -166,18 +120,16 @@ def test_query_engagement_metrics(test_db):
     assert 75 <= m["engagement_rate"] <= 85
 
 
-def test_query_archetype_participation(test_db, profiles_path):
+def test_query_archetype_participation(test_db):
     from scripts.generate_scorecard import query_archetype_participation
 
-    p = query_archetype_participation(test_db, profiles_path)
+    p = query_archetype_participation(test_db, 1)
 
     assert "Skeptical PM" in p
     assert p["Skeptical PM"]["commented"] == 1
-    assert p["Skeptical PM"]["disliked"] >= 1
 
     assert "Early Founder" in p
     assert p["Early Founder"]["commented"] == 1
-    assert p["Early Founder"]["liked"] >= 1
 
     assert "Lurker" in p
     assert p["Lurker"]["commented"] == 0
@@ -506,10 +458,10 @@ def test_build_scorecard_no_comments():
     assert sc["missing_features"] == []
 
 
-def test_generate_scorecard_full(test_db, profiles_path, monkeypatch):
+def test_generate_scorecard_full(test_db, monkeypatch):
     from scripts import generate_scorecard
 
-    fake_response = json.dumps(
+    fake_comment_response = json.dumps(
         {
             "comments": [
                 {
@@ -583,9 +535,27 @@ def test_generate_scorecard_full(test_db, profiles_path, monkeypatch):
             ]
         }
     )
-    monkeypatch.setattr(generate_scorecard, "_ask_llm", lambda prompt: fake_response)
+    fake_interview_response = json.dumps(
+        {
+            "ratings": [
+                {
+                    "index": 1,
+                    "clarity": "accurate",
+                    "would_click": "yes",
+                    "would_signup": "likely",
+                }
+            ]
+        }
+    )
 
-    sc = generate_scorecard.generate_scorecard(test_db, profiles_path)
+    def _fake_ask_llm(prompt: str) -> str:
+        if "Rate each person's understanding" in prompt:
+            return fake_interview_response
+        return fake_comment_response
+
+    monkeypatch.setattr(generate_scorecard, "_ask_llm", _fake_ask_llm)
+
+    sc = generate_scorecard.generate_scorecard(test_db, 1)
 
     assert sc["grade"] in ("A+", "A", "B+", "B", "C+", "C", "D", "F")
     assert isinstance(sc["score"], float)
@@ -598,3 +568,14 @@ def test_generate_scorecard_full(test_db, profiles_path, monkeypatch):
     assert "engagement_decay" in sc
     assert "engagement_depth" in sc
     assert "audience_fit" in sc
+
+    conn = sqlite3.connect(test_db)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT score, grade, summary, data FROM run_scorecard WHERE run_id = ?", (1,)
+    )
+    row = cur.fetchone()
+    conn.close()
+    assert row is not None
+    assert row[1] == sc["grade"]
+    assert json.loads(row[3])["metrics"]["comment_count"] == 4
