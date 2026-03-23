@@ -36,6 +36,7 @@ A parsed subreddit whose member patterns have been analyzed.
 |---|---|---|---|
 | id | INTEGER | PK AUTOINCREMENT | |
 | subreddit | TEXT | UNIQUE NOT NULL | e.g., "r/SaaS" |
+| status | TEXT | NOT NULL DEFAULT 'draft' | draft (pending approval) / active (ready for simulation) |
 | scraped_at | DATETIME | | when Reddit API was last hit (NULL for seeded/legacy communities) |
 | raw_data | TEXT | | JSON blob — raw Reddit API response (top posts, comments, user patterns) |
 
@@ -48,8 +49,10 @@ An LLM-generated persona belonging to a community.
 | id | INTEGER | PK AUTOINCREMENT | |
 | community_id | INTEGER | FK → community NOT NULL | |
 | username | TEXT | NOT NULL | generated username (must contain archetype prefix) |
+| realname | TEXT | NOT NULL | display name (e.g., "Maya Chen") |
 | archetype | TEXT | NOT NULL | e.g., "skeptical_pm", "indie_hacker" |
-| persona | TEXT | NOT NULL | behavioral description (200+ chars) |
+| bio | TEXT | | short bio used for thread rendering and scorecard archetype descriptions |
+| persona | TEXT | NOT NULL | behavioral description (200+ chars) — drives LLM agent behavior |
 | demographics | TEXT | | JSON blob — age, gender, mbti, country, profession, interested_topics |
 | generated_at | DATETIME | NOT NULL | |
 
@@ -81,15 +84,17 @@ Which profiles were selected and used in a run.
 |---|---|---|---|
 | id | INTEGER | PK AUTOINCREMENT | |
 | run_id | INTEGER | FK → run NOT NULL | |
-| profile_id | INTEGER | FK → community_profile | NULL if using legacy profiles |
+| profile_id | INTEGER | | source profile ID at time of run (informational only, not an FK — profiles may be deleted on refresh) |
 | username | TEXT | NOT NULL | agent username for this run |
+| realname | TEXT | NOT NULL | display name |
 | archetype | TEXT | NOT NULL | |
+| bio | TEXT | | |
 | persona | TEXT | NOT NULL | behavioral description |
 | demographics | TEXT | | JSON blob |
 | oasis_user_id | INTEGER | | ID in OASIS's internal agent graph |
 | engaged | BOOLEAN | NOT NULL DEFAULT 0 | was this agent activated during simulation rounds? |
 
-`run_agent` denormalizes profile data intentionally — profiles can be regenerated, but a run's agents should be immutable history.
+`run_agent` denormalizes profile data intentionally — profiles can be regenerated or deleted on refresh, but a run's agents are immutable history. `profile_id` is stored for traceability but is NOT a foreign key — it won't break if the source profile is deleted.
 
 ### `run_comment`
 
@@ -194,49 +199,59 @@ No more `profiles/`, `posts/`, `results/` directories with loose files.
 
 ## Community Selection Flow
 
+### Community status
+
+`community` has a `status` column:
+- `draft` — profiles have been generated but not yet approved by the user
+- `active` — profiles are approved and ready for simulation
+
+Only `active` communities appear in the simulation community selector.
+
 ### Three scenarios
 
 **1. New community** — user enters a subreddit that doesn't exist in DB:
-- Scrape Reddit API (top posts, comments, active user patterns)
-- LLM generates personas from scraped data
-- Save `community` + `community_profile` rows
-- Show generated personas for review — user can edit individual profiles (username, archetype, persona text, demographics) or remove agents
-- User approves → community is ready for simulation
+- Create `community` row with `status = 'draft'`
+- Scrape Reddit API (top posts, comments, active user patterns) → store in `community.raw_data`
+- LLM generates personas from scraped data → save as `community_profile` rows
+- Show generated personas for review — user can edit individual profiles or remove agents
+- User clicks "Approve" → `community.status` = `'active'`, community is ready for simulation
 
-**2. Existing community, no changes needed** — user selects from dropdown:
+**2. Existing active community, no changes needed** — user selects from dropdown:
 - Show profile count + "last generated X days ago"
 - User can launch simulation immediately
+- User can still edit individual profiles at any time (edits save directly)
 
 **3. Existing community, user wants to refresh** — user clicks refresh:
-- Re-scrape Reddit API
-- LLM regenerates personas
-- Show updated personas for review (same edit flow as scenario 1)
-- On approve, old `community_profile` rows are replaced with new ones
-- Existing `run_agent` rows from past runs are unaffected (they're immutable snapshots)
+- Set `community.status` = `'draft'`
+- Re-scrape Reddit API, update `community.raw_data` and `community.scraped_at`
+- Delete existing `community_profile` rows for this community (safe — `run_agent.profile_id` is not an FK, past runs are unaffected)
+- LLM generates new personas → save as new `community_profile` rows
+- Show for review (same edit flow as scenario 1)
+- User approves → `community.status` = `'active'`
 
 ### Persona editing
 
 `community_profile` rows are editable templates. Users can:
-- Edit any field: username, archetype, persona text, demographics
+- Edit any field: username, realname, archetype, bio, persona text, demographics
 - Remove profiles from the community
-- Changes are saved directly to `community_profile` table
 
-When a simulation launches, selected profiles are **copied** into `run_agent` rows. That snapshot is immutable — editing community profiles afterward does not affect past runs.
+When a simulation launches, selected profiles are **copied** into `run_agent` rows. That snapshot is immutable — editing or deleting community profiles afterward does not affect past runs.
 
 ### API endpoints for community management
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `GET /api/communities` | GET | List all communities with profile counts and last-generated dates |
-| `POST /api/communities` | POST | Create new community: accepts subreddit name, scrapes Reddit API, generates personas via LLM, returns community + profiles |
+| `GET /api/communities` | GET | List all communities with profile counts, status, and last-generated dates |
+| `POST /api/communities` | POST | Create new community: accepts subreddit name, scrapes Reddit API, generates personas via LLM. Returns community (status=draft) + profiles |
+| `POST /api/communities/{id}/approve` | POST | Set community status to active |
 | `GET /api/communities/{id}/profiles` | GET | List all profiles for a community |
 | `PUT /api/communities/{id}/profiles/{profile_id}` | PUT | Edit a single profile |
 | `DELETE /api/communities/{id}/profiles/{profile_id}` | DELETE | Remove a profile from a community |
-| `POST /api/communities/{id}/refresh` | POST | Re-scrape + regenerate all profiles for a community |
+| `POST /api/communities/{id}/refresh` | POST | Re-scrape + regenerate all profiles, sets status back to draft |
 
 ### Simulate endpoint change
 
-`POST /api/simulate` gains a `community_id` parameter. If omitted, uses the default seeded "r/SaaS" community.
+`POST /api/simulate` gains a `community_id` parameter. Server validates the community has `status = 'active'` before allowing simulation. If `community_id` is omitted, uses the default seeded "r/SaaS" community.
 
 ## What Does NOT Change
 
