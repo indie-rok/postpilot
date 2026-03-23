@@ -127,6 +127,9 @@ async def run_simulation(post_path, profiles_path, tag, results_dir):
     minutes_per_round = TIME_CONFIG["minutes_per_round"]
     total_rounds = (total_hours * 60) // minutes_per_round
 
+    llm_calls = 0
+    emit_progress(phase="setup", total_rounds=total_rounds, total_agents=len(profiles))
+
     print(f"Loaded {len(profiles)} agent profiles")
     print(f"Post length: {len(post_content)} chars")
     print(
@@ -178,6 +181,16 @@ async def run_simulation(post_path, profiles_path, tag, results_dir):
         active = get_active_agents_for_hour(agents, simulated_hour)
         print(f"Active agents: {len(active)}/{len(agents)}")
 
+        simulated_time = f"{simulated_hour:02d}:{simulated_minutes % 60:02d}"
+        emit_progress(
+            phase="simulation",
+            round=round_num + 1,
+            total_rounds=total_rounds,
+            hour=simulated_time,
+            active_agents=len(active),
+            llm_calls=llm_calls,
+        )
+
         if not active:
             continue
 
@@ -187,14 +200,18 @@ async def run_simulation(post_path, profiles_path, tag, results_dir):
         round_actions: dict[Any, Any] = {agent: LLMAction() for _, agent in active}
         await env.step(round_actions)
 
+        llm_calls += len(active)
+
     print(f"\n=== Simulation complete: {tag} ===")
     print(f"Results saved to: {db_path}")
 
-    interviews = await run_interviews(agents, engaged_agent_ids)
+    interviews, llm_calls = await run_interviews(agents, engaged_agent_ids, llm_calls)
     interviews_path = os.path.join(results_dir, f"{tag}_interviews.json")
     with open(interviews_path, "w") as f:
         json.dump(interviews, f, indent=2, ensure_ascii=False)
     print(f"Interviews saved: {len(interviews)} responses → {interviews_path}")
+
+    emit_progress(phase="complete", llm_calls=llm_calls)
 
     await env.close()
     return db_path
@@ -209,12 +226,21 @@ INTERVIEW_PROMPT = (
 )
 
 
-async def run_interviews(agents: list, engaged_ids: set[int]) -> list[dict]:
+async def run_interviews(
+    agents: list, engaged_ids: set[int], llm_calls: int = 0
+) -> tuple[list[dict], int]:
     print("\n--- Running post-simulation interviews ---")
     skipped = [aid for aid, _ in agents if aid not in engaged_ids]
     if skipped:
         print(f"  Skipping {len(skipped)} agents that were never activated")
+
+    interview_total = sum(1 for aid, _ in agents if aid in engaged_ids)
+    if interview_total == 0:
+        return ([], llm_calls)
+    emit_progress(phase="interview", current=0, total=interview_total)
+
     results = []
+    interview_idx = 0
     for agent_id, agent in agents:
         if agent_id not in engaged_ids:
             continue
@@ -231,6 +257,15 @@ async def run_interviews(agents: list, engaged_ids: set[int]) -> list[dict]:
                 }
             )
             print(f"  Interviewed {username}: {response.get('content', '')[:80]}...")
+            interview_idx += 1
+            llm_calls += 1
+            emit_progress(
+                phase="interview",
+                current=interview_idx,
+                total=interview_total,
+                agent=username,
+                llm_calls=llm_calls,
+            )
         except Exception as exc:
             print(f"  Interview failed for {username}: {exc}")
             results.append(
@@ -242,7 +277,16 @@ async def run_interviews(agents: list, engaged_ids: set[int]) -> list[dict]:
                     "success": False,
                 }
             )
-    return results
+            interview_idx += 1
+            llm_calls += 1
+            emit_progress(
+                phase="interview",
+                current=interview_idx,
+                total=interview_total,
+                agent=username,
+                llm_calls=llm_calls,
+            )
+    return (results, llm_calls)
 
 
 def main():
