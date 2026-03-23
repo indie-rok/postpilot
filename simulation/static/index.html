@@ -454,7 +454,7 @@
         </div>
         <div class="form-group">
           <div class="small-label">Endpoint</div>
-          <input type="text" id="base-url" value="http://localhost:8317/v1">
+          <input type="text" id="base-url" value="http://35.181.50.2:8317/v1">
         </div>
         <div class="form-group">
           <div class="small-label">Model</div>
@@ -1245,6 +1245,13 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
         if (!resp.ok) throw new Error('Failed to load results');
         const data = await resp.json();
         renderThread(data);
+        scorecardEl.classList.add('hidden');
+        scorecardEl.innerHTML = '';
+        analyzeBtn.style.display = '';
+        analyzeBtn.disabled = false;
+        analyzeBtn.textContent = '\uD83D\uDCCA Generate Scorecard';
+        if (typeof rewriteResult !== 'undefined') rewriteResult.classList.add('hidden');
+        if (typeof rewriteBtn !== 'undefined') { rewriteBtn.style.display = ''; rewriteBtn.disabled = false; }
         loadRunHistory();
       } catch(e) {
         console.error('Failed to load run:', e);
