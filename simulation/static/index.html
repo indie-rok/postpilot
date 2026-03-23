@@ -155,11 +155,9 @@
     /* Post preview */
     .post-preview {
       background: var(--bg);
-      border: 1px solid var(--border);
       border-radius: 8px;
       padding: 16px;
       margin-bottom: 16px;
-      white-space: pre-wrap;
       font-size: 14px;
       line-height: 1.6;
       color: var(--text);
@@ -428,35 +426,6 @@
         </div>
       </details>
 
-      <textarea id="post-content">We built a tool that predicts employee burnout before it turns into a resignation. Here's what we learned from 14 beta companies.
-
-Hey r/SaaS — Maya here, co-founder of FlowPulse.
-
-Quick background: I spent 4 years running People Ops. I watched dozens of great people quietly burn out and leave. Every time, their manager said "I had no idea." The signs were always there — we just didn't have a way to see them in real time.
-
-FlowPulse is a lightweight pulse check platform for remote and hybrid teams:
-
-1. Micro check-ins — one-tap, emoji-based daily prompts (~15 seconds). 78% completion vs ~23% for traditional surveys.
-2. Burnout Radar — ML model that flags at-risk patterns. Managers get suggested actions, not raw data. Individuals stay anonymous unless they opt in.
-
-What we learned from beta (14 companies, ~1,200 users):
-- Privacy is the whole game. We rebuilt our data layer after beta companies almost dropped us.
-- Simpler check-ins = higher signal. Single emoji tap + optional comment.
-- Managers don't want data — they want "what do I do."
-- After-hours work is the strongest burnout predictor. Preceded every resignation by 3–5 weeks.
-
-Numbers: NPS 72, daily active 64%, churn 2.1%, 40+ waitlist.
-Pricing: $4/user/mo (Starter), $8/user/mo (Growth), custom (Enterprise).
-
-Questions:
-1. Does $4–8/user feel right?
-2. Does "privacy-first" resonate or is it table stakes?
-3. "Team analytics" vs "burnout prevention" — which makes you click?
-
-If you want to check it out: flowpulse.io — we just opened early access. No credit card required.
-
-— Maya</textarea>
-
       <button id="launch-btn">🚀 Launch Simulation</button>
     </div>
 
@@ -488,7 +457,34 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
         <!-- Thread Tab -->
         <div id="tab-thread" class="tab-content active">
           <div class="post-preview-label">Your Post</div>
-          <div class="post-preview" id="post-preview"></div>
+          <textarea id="post-content" class="post-preview" style="height: 300px; resize: vertical; border: 1px solid var(--border); cursor: text;">We built a tool that predicts employee burnout before it turns into a resignation. Here's what we learned from 14 beta companies.
+
+Hey r/SaaS — Maya here, co-founder of FlowPulse.
+
+Quick background: I spent 4 years running People Ops. I watched dozens of great people quietly burn out and leave. Every time, their manager said "I had no idea." The signs were always there — we just didn't have a way to see them in real time.
+
+FlowPulse is a lightweight pulse check platform for remote and hybrid teams:
+
+1. Micro check-ins — one-tap, emoji-based daily prompts (~15 seconds). 78% completion vs ~23% for traditional surveys.
+2. Burnout Radar — ML model that flags at-risk patterns. Managers get suggested actions, not raw data. Individuals stay anonymous unless they opt in.
+
+What we learned from beta (14 companies, ~1,200 users):
+- Privacy is the whole game. We rebuilt our data layer after beta companies almost dropped us.
+- Simpler check-ins = higher signal. Single emoji tap + optional comment.
+- Managers don't want data — they want "what do I do."
+- After-hours work is the strongest burnout predictor. Preceded every resignation by 3–5 weeks.
+
+Numbers: NPS 72, daily active 64%, churn 2.1%, 40+ waitlist.
+Pricing: $4/user/mo (Starter), $8/user/mo (Growth), custom (Enterprise).
+
+Questions:
+1. Does $4–8/user feel right?
+2. Does "privacy-first" resonate or is it table stakes?
+3. "Team analytics" vs "burnout prevention" — which makes you click?
+
+If you want to check it out: flowpulse.io — we just opened early access. No credit card required.
+
+— Maya</textarea>
           <div class="stats-bar hidden" id="stats-bar">
             <span>Score: <strong id="stat-score">0</strong></span>
             <span>Comments: <strong id="stat-comments">0</strong></span>
@@ -608,7 +604,6 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     const tabs = document.querySelectorAll('.tab');
     const tabContents = document.querySelectorAll('.tab-content');
     
-    const postPreview = document.getElementById('post-preview');
     const noCommentsMsg = document.getElementById('no-comments-msg');
     const statsBar = document.getElementById('stats-bar');
     const threadContainer = document.getElementById('thread-container');
@@ -648,11 +643,7 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     hoursSlider.addEventListener('input', updateCalc);
     updateCalc();
 
-    function syncPostPreview() {
-      postPreview.textContent = postContent.value || '';
-    }
-    postContent.addEventListener('input', syncPostPreview);
-    syncPostPreview();
+
 
     // Tabs logic
     tabs.forEach(tab => {
