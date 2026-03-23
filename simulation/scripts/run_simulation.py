@@ -70,7 +70,7 @@ def create_model():
         raise ValueError("LLM_API_KEY not set in environment")
 
     base_url = os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1")
-    model_type = os.getenv("LLM_MODEL", "arcee-ai/trinity-mini:free")
+    model_type = os.getenv("LLM_MODEL", "gpt-5-mini")
 
     return ModelFactory.create(
         model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,

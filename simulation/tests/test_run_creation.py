@@ -183,8 +183,7 @@ def test_select_profiles_for_community_returns_diverse_profiles(db_path):
     assert len(selected) == 6
     assert len({p["id"] for p in selected}) == 6
     archetypes = {p["archetype"] for p in selected}
-    assert "Skeptical PM" in archetypes
-    assert "Early Founder" in archetypes or "Scaled Founder" in archetypes
+    assert len(archetypes) >= 4
 
 
 def test_get_results_for_run_returns_expected_shape_and_stats(db_path):

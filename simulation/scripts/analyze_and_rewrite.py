@@ -17,7 +17,7 @@ def _create_model():
 
     return ModelFactory.create(
         model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
-        model_type=os.getenv("LLM_MODEL", "arcee-ai/trinity-mini:free"),
+        model_type=os.getenv("LLM_MODEL", "gpt-5-mini"),
         api_key=os.getenv("LLM_API_KEY"),
         url=os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
         model_config_dict={"temperature": 0.3},
