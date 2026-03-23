@@ -96,6 +96,10 @@ Which profiles were selected and used in a run.
 
 `run_agent` denormalizes profile data intentionally — profiles can be regenerated or deleted on refresh, but a run's agents are immutable history. `profile_id` is stored for traceability but is NOT a foreign key — it won't break if the source profile is deleted.
 
+### Archetype source of truth
+
+The `archetype` column on `community_profile` and `run_agent` is the canonical source of truth. The legacy pattern of deriving archetype from username prefixes (via `get_archetype()` in `run_simulation.py`) must be replaced: all code that needs an agent's archetype should read it from the `archetype` column, not infer it from the username string. Usernames no longer need to contain archetype prefixes — they can be any generated name.
+
 ### `run_comment`
 
 Comments extracted from OASIS DB after simulation.
@@ -153,9 +157,10 @@ Cached scorecard analysis per run.
 ### During simulation
 
 7. OASIS writes to a temp SQLite DB (`/tmp/reddit-sim-{run_id}.db` or similar)
-8. Server streams progress via WebSocket (unchanged)
-9. `run_interviews()` writes interview responses directly to `run_interview` table
+8. After OASIS agent graph is created, populate `run_agent.oasis_user_id` by matching usernames between `run_agent` rows and OASIS's agent graph entries. This mapping is needed for interview writes and post-run extraction.
+9. Server streams progress via WebSocket (unchanged)
 10. Update `run.status` = 'running'
+11. `run_interviews()` uses the `oasis_user_id` ↔ `run_agent.id` mapping to write interview responses directly to `run_interview` with the correct `agent_id`
 
 ### After simulation
 
@@ -276,7 +281,8 @@ When a simulation launches, selected profiles are **copied** into `run_agent` ro
 
 On server startup, if `reddit-sim.db` does not exist:
 1. Create all tables with schema above
-2. Import `r_saas_community.json` as the default "r/SaaS" community + profiles
-3. Ready to accept simulations
+2. Import `r_saas_community.json` as the default "r/SaaS" community with `status = 'active'` and `scraped_at = NULL` (seeded, not scraped)
+3. Import all 18 profiles as `community_profile` rows with `generated_at` set to current timestamp
+4. Ready to accept simulations
 
 If the DB already exists, no migration needed (schema is stable from v1).
