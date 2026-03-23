@@ -27,6 +27,10 @@ from oasis import ActionType, LLMAction, ManualAction
 from config.simulation_config import PLATFORM_CONFIG, ACTIVITY_CONFIGS, TIME_CONFIG
 
 
+def emit_progress(**kwargs: int | str) -> None:
+    print(f"PROGRESS:{json.dumps(kwargs)}", flush=True)
+
+
 def load_profiles(profiles_path: str) -> list[dict]:
     with open(profiles_path) as f:
         return json.load(f)
