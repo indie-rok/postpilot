@@ -575,6 +575,27 @@
   
   .persona-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; max-height: 400px; overflow-y: auto; }
 
+  
+  .sim-top-bar {
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: -20px -20px 20px -20px;
+  }
+  .sim-top-bar-left { display: flex; align-items: center; gap: 16px; }
+  .sim-community-badge {
+    font-size: 14px;
+    font-weight: 700;
+    padding: 4px 12px;
+    background: rgba(255,69,0,0.15);
+    border-radius: 6px;
+    color: var(--brand);
+  }
+  .sim-persona-count { font-size: 12px; color: var(--muted); }
+
   </style>
 </head>
 <body>
@@ -734,10 +755,15 @@
   <div id="view-simulate" class="view">
 
 
-  <header>
-    <h1>FlowPulse — Reddit Simulation Lab</h1>
-    <p class="subtitle">Simulate how your launch post performs on r/SaaS</p>
-  </header>
+  
+<div class="sim-top-bar">
+  <div class="sim-top-bar-left">
+    <a href="#" onclick="navigateTo('/dashboard'); return false;" class="back-link">&larr; Dashboard</a>
+    <span class="sim-community-badge" id="sim-community-name">Community</span>
+    <span class="sim-persona-count" id="sim-persona-count">0 personas</span>
+  </div>
+</div>
+
 
   <div class="grid">
     <!-- Config Panel -->
@@ -818,25 +844,7 @@
 
         <!-- Thread Tab -->
         <div id="tab-thread" class="tab-content active">
-          <div id="community-section" style="margin-bottom: 16px;">
-            <div class="form-group" style="margin-bottom: 8px;">
-              <div class="label-row">
-                <label>Subreddit</label>
-                <span id="community-status" style="font-size: 12px;"></span>
-              </div>
-              <div class="community-row">
-                <input type="text" id="subreddit-input" placeholder="e.g. r/startups" value="r/SaaS">
-                <button type="button" id="generate-btn">Generate</button>
-              </div>
-            </div>
-            <div id="no-reddit-notice" class="no-reddit-notice hidden">No Reddit API keys configured — using default r/SaaS community</div>
-            <div id="personas-section" class="hidden">
-              <div class="persona-summary">
-                <span><span class="count" id="persona-count">0</span> personas</span>
-                <button type="button" id="toggle-personas-btn" style="font-size:11px;padding:2px 8px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:4px;cursor:pointer;">Show</button>
-              </div>
-              <div id="personas-container" class="persona-grid hidden"></div>
-            </div>
+          
           </div>
 
           <button type="button" id="launch-btn" style="width: 100%; margin-bottom: 12px;">🚀 Launch Simulation</button>
@@ -1229,7 +1237,7 @@ document.getElementById('dash-save-btn').addEventListener('click', async () => {
     });
     if (!resp.ok) throw new Error('Failed to save');
     document.getElementById('settings-panel').classList.remove('open');
-    initDashboard(); // refresh
+    initDashboard();
   } catch (err) {
     alert('Error: ' + err.message);
   } finally {
@@ -1330,7 +1338,46 @@ function renderNewPersonas(profiles) {
   }).join('');
 }
 
-    function initSimulateView(communityId) {}
+    
+async function initSimulateView(communityId) {
+  activeCommunityId = communityId;
+  
+  const [commResp, productResp] = await Promise.all([
+    fetch('/api/communities'),
+    fetch('/api/product'),
+  ]);
+  if (commResp.ok) {
+    const communities = await commResp.json();
+    const community = communities.find(c => c.id === communityId);
+    if (community) {
+      document.getElementById('sim-community-name').textContent = community.subreddit;
+      document.getElementById('sim-persona-count').textContent = community.profile_count + ' personas';
+    }
+  }
+  
+  if (productResp.ok) {
+    const product = await productResp.json();
+    if (product.llm_model) llmModelInput.value = product.llm_model;
+    if (product.llm_base_url) baseUrlInput.value = product.llm_base_url;
+    if (product.llm_api_key) apiKeyInput.value = product.llm_api_key;
+    if (product.batch_size != null) batchSizeInput.value = product.batch_size;
+  }
+  
+  const params = new URLSearchParams(window.location.search);
+  const runTag = params.get('run');
+  if (runTag) {
+    loadRun(runTag);
+  } else {
+    activeRunTag = null;
+    postReadonly.classList.add('hidden');
+    postContent.classList.remove('hidden');
+    launchBtn.classList.remove('hidden');
+    newSimBtn.classList.add('hidden');
+  }
+  
+  loadRunHistory(communityId);
+}
+
 
     // Elements
     const agentsSlider = document.getElementById('agents-slider');
@@ -1348,14 +1395,14 @@ function renderNewPersonas(profiles) {
     const batchSizeInput = document.getElementById('batch-size');
     const launchBtn = document.getElementById('launch-btn');
 
-    const subredditInput = document.getElementById('subreddit-input');
-    const generateBtn = document.getElementById('generate-btn');
-    const communityStatus = document.getElementById('community-status');
-    const noRedditNotice = document.getElementById('no-reddit-notice');
-    const personasSection = document.getElementById('personas-section');
-    const personasContainer = document.getElementById('personas-container');
-    const personaCountEl = document.getElementById('persona-count');
-    const togglePersonasBtn = document.getElementById('toggle-personas-btn');
+    const subredditInput = document.getElementById('new-subreddit-input');
+    const generateBtn = document.getElementById('new-generate-btn');
+    const communityStatus = { textContent: '', style: {} };
+    const noRedditNotice = { classList: { remove: () => {} } };
+    const personasSection = document.getElementById('new-personas-section');
+    const personasContainer = document.getElementById('new-personas-container');
+    const personaCountEl = document.getElementById('new-persona-count');
+    const togglePersonasBtn = document.getElementById('dummy-toggle');
     const editModal = document.getElementById('edit-modal');
     const editProfileId = document.getElementById('edit-profile-id');
     const editUsername = document.getElementById('edit-username');
@@ -1431,13 +1478,14 @@ function renderNewPersonas(profiles) {
         const data = await resp.json();
         redditKeysConfigured = data.configured;
         if (!redditKeysConfigured) {
-          noRedditNotice.classList.remove('hidden');
-          generateBtn.disabled = true;
-          generateBtn.style.opacity = '0.5';
-          communityStatus.textContent = 'default community';
-          communityStatus.style.color = 'var(--muted)';
-          subredditInput.disabled = true;
-          loadDefaultCommunity();
+          const genBtn = document.getElementById('new-generate-btn');
+          const subInput = document.getElementById('new-subreddit-input');
+          if (genBtn) {
+            genBtn.disabled = true;
+            genBtn.style.opacity = '0.5';
+            genBtn.textContent = 'No Reddit API keys configured';
+          }
+          if (subInput) subInput.disabled = true;
         }
       } catch (e) {
         console.error('Failed to check reddit status:', e);
@@ -1456,48 +1504,7 @@ function renderNewPersonas(profiles) {
       }
     }
 
-    generateBtn.addEventListener('click', async () => {
-      const subreddit = subredditInput.value.trim();
-      if (!subreddit) {
-        alert('Please enter a subreddit name');
-        return;
-      }
-
-      generateBtn.disabled = true;
-      generateBtn.innerHTML = '<span class="spinner"></span>';
-      communityStatus.textContent = 'Scraping & generating...';
-      communityStatus.style.color = 'var(--brand)';
-
-      try {
-        const resp = await fetch('/api/communities/generate', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({
-            subreddit: subreddit,
-            persona_count: parseInt(agentsSlider.value) || 18,
-          }),
-        });
-
-        if (!resp.ok) {
-          const body = await resp.json().catch(() => ({}));
-          throw new Error(body.detail || 'Generation failed');
-        }
-
-        const data = await resp.json();
-        activeCommunityId = data.community_id;
-        currentPersonas = data.profiles;
-        communityStatus.textContent = data.profile_count + ' personas ready';
-        communityStatus.style.color = 'var(--success)';
-        renderPersonas(data.profiles);
-      } catch (err) {
-        communityStatus.textContent = 'Failed: ' + err.message;
-        communityStatus.style.color = 'var(--error)';
-      } finally {
-        generateBtn.disabled = false;
-        generateBtn.textContent = 'Generate';
-      }
-    });
-
+    
     function renderPersonas(profiles) {
       personasSection.classList.remove('hidden');
       personaCountEl.textContent = profiles.length;
@@ -1507,7 +1514,7 @@ function renderNewPersonas(profiles) {
         archetypes[p.archetype] = (archetypes[p.archetype] || 0) + 1;
       });
 
-      personasContainer.innerHTML = profiles.map(p => {
+      document.getElementById('new-personas-container').innerHTML = profiles.map(p => {
         const flairColor = getFlairColor(p.archetype);
         const bioText = p.bio || '';
         const personaPreview = (p.persona || '').substring(0, 100) + (p.persona && p.persona.length > 100 ? '...' : '');
@@ -1526,12 +1533,7 @@ function renderNewPersonas(profiles) {
       }).join('');
     }
 
-    togglePersonasBtn.addEventListener('click', () => {
-      const isHidden = personasContainer.classList.contains('hidden');
-      personasContainer.classList.toggle('hidden');
-      togglePersonasBtn.textContent = isHidden ? 'Hide' : 'Show';
-    });
-
+    
     function openEditModal(profileId) {
       const profile = currentPersonas.find(p => p.id === profileId);
       if (!profile) return;
@@ -1709,18 +1711,7 @@ function renderNewPersonas(profiles) {
 
     // Launch
     newSimBtn.addEventListener('click', () => {
-      activeRunTag = null;
-      postReadonly.classList.add('hidden');
-      postContent.classList.remove('hidden');
-      postLabel.textContent = 'Your Post';
-      launchBtn.classList.remove('hidden');
-      newSimBtn.classList.add('hidden');
-      statsBar.classList.add('hidden');
-      threadContainer.innerHTML = '<div class="no-comments-yet">Launch a simulation to see agent reactions</div>';
-      scorecardEl.classList.add('hidden');
-      analyzeBtn.style.display = '';
-      document.getElementById('community-section').classList.remove('hidden');
-      loadRunHistory();
+      navigateTo('/simulate/' + activeCommunityId);
     });
 
     launchBtn.addEventListener('click', async () => {
@@ -1787,8 +1778,9 @@ function renderNewPersonas(profiles) {
       setTimeout(resetLaunchButton, 3000);
       
       activeRunTag = tag;
+      history.replaceState(null, '', '/simulate/' + activeCommunityId + '?run=' + tag);
       await loadResults(tag);
-      loadRunHistory();
+      loadRunHistory(activeCommunityId);
     }
 
     function resetLaunchButton() {
@@ -2134,9 +2126,13 @@ function renderNewPersonas(profiles) {
 
     let activeRunTag = null;
 
-    async function loadRunHistory() {
+    async function loadRunHistory(communityId) {
       try {
-        const resp = await fetch('/api/runs');
+        
+    let url = '/api/runs';
+    if (communityId) url += '?community_id=' + communityId;
+    const resp = await fetch(url);
+
         const runs = await resp.json();
         renderRunList(runs);
       } catch(e) {
@@ -2177,10 +2173,9 @@ function renderNewPersonas(profiles) {
         postLabel.textContent = 'Post (' + tag + ')';
         launchBtn.classList.add('hidden');
         newSimBtn.classList.remove('hidden');
-        document.getElementById('community-section').classList.add('hidden');
-        if (typeof rewriteResult !== 'undefined') rewriteResult.classList.add('hidden');
+                if (typeof rewriteResult !== 'undefined') rewriteResult.classList.add('hidden');
         if (typeof rewriteBtn !== 'undefined') { rewriteBtn.style.display = ''; rewriteBtn.disabled = false; }
-        loadRunHistory();
+        loadRunHistory(activeCommunityId);
 
         const scResp = await fetch('/api/scorecard/' + tag, {
           method: 'POST',
@@ -2212,7 +2207,7 @@ function renderNewPersonas(profiles) {
           threadContainer.innerHTML = '<div class="no-comments-yet">Launch a simulation to see agent reactions</div>';
           statsBar.classList.add('hidden');
         }
-        loadRunHistory();
+        loadRunHistory(activeCommunityId);
       } catch(e) {
         console.error('Failed to delete run:', e);
       }
