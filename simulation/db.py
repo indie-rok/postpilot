@@ -108,6 +108,22 @@ CREATE TABLE IF NOT EXISTS run_scorecard (
     created_at DATETIME NOT NULL,
     FOREIGN KEY (run_id) REFERENCES run(id)
 );
+
+CREATE TABLE IF NOT EXISTS product (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    name TEXT NOT NULL,
+    tagline TEXT,
+    description TEXT,
+    features TEXT,
+    pricing TEXT,
+    target_audience TEXT,
+    llm_model TEXT,
+    llm_base_url TEXT,
+    llm_api_key TEXT,
+    batch_size INTEGER DEFAULT 0,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL
+);
 """
 
 
@@ -484,49 +500,30 @@ def select_profiles_for_community(
         }
         by_archetype.setdefault(str(row["archetype"]), []).append(profile)
 
-    skeptics = by_archetype.get("Skeptical PM", [])
-    early_founders = by_archetype.get("Early Founder", [])
-    scaled_founders = by_archetype.get("Scaled Founder", [])
+    if not by_archetype:
+        raise RuntimeError(f"No profiles found for community {community_id}")
 
-    if count >= 2 and (not skeptics or (not early_founders and not scaled_founders)):
-        raise RuntimeError("Profiles must include at least one skeptic and one founder")
+    archetype_names = sorted(by_archetype.keys())
 
     chosen: list[dict[str, Any]] = []
-    if skeptics and len(chosen) < count:
-        chosen.append(skeptics.pop(0))
-
-    if len(chosen) < count:
-        if early_founders:
-            chosen.append(early_founders.pop(0))
-        elif scaled_founders:
-            chosen.append(scaled_founders.pop(0))
-
-    rotation = [
-        "Early Founder",
-        "Scaled Founder",
-        "Skeptical PM",
-        "Indie Hacker",
-        "HR/People Ops",
-        "Community Regular",
-        "VC/Growth",
-        "Lurker",
-    ]
-    extra = [name for name in by_archetype.keys() if name not in set(rotation)]
-    full_rotation = rotation + sorted(extra)
+    chosen_ids: set[int] = set()
 
     idx = 0
     while len(chosen) < count:
-        archetype = full_rotation[idx % len(full_rotation)]
+        archetype = archetype_names[idx % len(archetype_names)]
         idx += 1
         pool = by_archetype.get(archetype, [])
         if not pool:
-            if all(not by_archetype.get(name, []) for name in full_rotation):
+            if all(not by_archetype.get(name, []) for name in archetype_names):
                 break
             continue
-        chosen.append(pool.pop(0))
+        picked = pool.pop(0)
+        if picked["id"] not in chosen_ids:
+            chosen.append(picked)
+            chosen_ids.add(picked["id"])
 
     if len(chosen) < count:
-        raise RuntimeError(f"Unable to pick {count} profiles from available archetypes")
+        raise RuntimeError(f"Only {len(chosen)} profiles available, requested {count}")
 
     return chosen
 
@@ -627,15 +624,15 @@ def get_results_for_run(db_path: str, run_id: int) -> dict[str, Any]:
         conn.close()
 
 
-def list_runs(db_path: str) -> list[dict[str, Any]]:
+def list_runs(db_path: str, community_id: int | None = None) -> list[dict[str, Any]]:
     conn = get_connection(db_path)
     try:
-        rows = conn.execute(
-            """
+        query = """
             SELECT
                 r.id,
                 r.tag,
                 r.status,
+                r.community_id,
                 r.agent_count,
                 r.total_hours,
                 r.llm_model,
@@ -649,9 +646,13 @@ def list_runs(db_path: str) -> list[dict[str, Any]]:
                     WHERE rc.run_id = r.id
                 ) AS comment_count
             FROM run r
-            ORDER BY r.created_at DESC
-            """
-        ).fetchall()
+        """
+        params: list[Any] = []
+        if community_id is not None:
+            query += " WHERE r.community_id = ?"
+            params.append(community_id)
+        query += " ORDER BY r.created_at DESC"
+        rows = conn.execute(query, params).fetchall()
         return [dict(row) for row in rows]
     finally:
         conn.close()
@@ -665,6 +666,242 @@ def delete_run(db_path: str, run_id: int) -> None:
         _ = conn.execute("DELETE FROM run_comment WHERE run_id = ?", (run_id,))
         _ = conn.execute("DELETE FROM run_agent WHERE run_id = ?", (run_id,))
         _ = conn.execute("DELETE FROM run WHERE id = ?", (run_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Community CRUD
+# ---------------------------------------------------------------------------
+
+
+def get_community_by_subreddit(db_path: str, subreddit: str) -> dict[str, Any] | None:
+    conn = get_connection(db_path)
+    try:
+        row = conn.execute(
+            "SELECT id, subreddit, status, scraped_at, raw_data FROM community WHERE subreddit = ?",
+            (subreddit,),
+        ).fetchone()
+        if row is None:
+            return None
+        return dict(row)
+    finally:
+        conn.close()
+
+
+def create_community(
+    db_path: str,
+    subreddit: str,
+    raw_data: str | None = None,
+    status: str = "draft",
+) -> int:
+    conn = get_connection(db_path)
+    try:
+        cur = conn.cursor()
+        _ = cur.execute(
+            """
+            INSERT INTO community (subreddit, status, scraped_at, raw_data)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                subreddit,
+                status,
+                datetime.now(timezone.utc).isoformat() if raw_data else None,
+                raw_data,
+            ),
+        )
+        conn.commit()
+        if cur.lastrowid is None:
+            raise RuntimeError("Failed to create community")
+        return int(cur.lastrowid)
+    finally:
+        conn.close()
+
+
+def save_community_profiles(
+    db_path: str,
+    community_id: int,
+    profiles: list[dict[str, Any]],
+    replace: bool = True,
+) -> None:
+    conn = get_connection(db_path)
+    try:
+        if replace:
+            _ = conn.execute(
+                "DELETE FROM community_profile WHERE community_id = ?",
+                (community_id,),
+            )
+
+        generated_at = datetime.now(timezone.utc).isoformat()
+        for profile in profiles:
+            demographics = {}
+            for key in [
+                "age",
+                "gender",
+                "mbti",
+                "country",
+                "profession",
+                "interested_topics",
+            ]:
+                if key in profile:
+                    demographics[key] = profile[key]
+
+            _ = conn.execute(
+                """
+                INSERT INTO community_profile (
+                    community_id, username, realname, archetype, bio, persona,
+                    demographics, generated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    community_id,
+                    profile["username"],
+                    profile["realname"],
+                    profile["archetype"],
+                    profile.get("bio"),
+                    profile["persona"],
+                    json.dumps(demographics),
+                    generated_at,
+                ),
+            )
+
+        _ = conn.execute(
+            "UPDATE community SET status = 'active' WHERE id = ?",
+            (community_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_all_profiles_for_community(
+    db_path: str, community_id: int
+) -> list[dict[str, Any]]:
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            """
+            SELECT id, community_id, username, realname, archetype, bio, persona,
+                   demographics, generated_at
+            FROM community_profile
+            WHERE community_id = ?
+            ORDER BY archetype, username
+            """,
+            (community_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def update_profile(db_path: str, profile_id: int, fields: dict[str, Any]) -> None:
+    allowed = {"username", "realname", "archetype", "bio", "persona"}
+    updates: list[str] = []
+    values: list[Any] = []
+
+    for key, value in fields.items():
+        if key in allowed:
+            updates.append(f"{key} = ?")
+            values.append(value)
+        elif key == "demographics":
+            updates.append("demographics = ?")
+            values.append(json.dumps(value) if isinstance(value, dict) else value)
+
+    if not updates:
+        return
+
+    values.append(profile_id)
+    conn = get_connection(db_path)
+    try:
+        _ = conn.execute(
+            f"UPDATE community_profile SET {', '.join(updates)} WHERE id = ?",
+            values,
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_profile(db_path: str, profile_id: int) -> None:
+    conn = get_connection(db_path)
+    try:
+        _ = conn.execute("DELETE FROM community_profile WHERE id = ?", (profile_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_communities(db_path: str) -> list[dict[str, Any]]:
+    conn = get_connection(db_path)
+    try:
+        rows = conn.execute(
+            """
+            SELECT c.id, c.subreddit, c.status, c.scraped_at,
+                   (SELECT COUNT(*) FROM community_profile cp WHERE cp.community_id = c.id) AS profile_count
+            FROM community c
+            ORDER BY c.subreddit
+            """
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Product CRUD
+# ---------------------------------------------------------------------------
+
+
+def get_product(db_path: str) -> dict[str, Any] | None:
+    conn = get_connection(db_path)
+    try:
+        row = conn.execute("SELECT * FROM product WHERE id = 1").fetchone()
+        if row is None:
+            return None
+        return dict(row)
+    finally:
+        conn.close()
+
+
+def save_product(db_path: str, data: dict[str, Any]) -> None:
+    conn = get_connection(db_path)
+    try:
+        now = datetime.now(timezone.utc).isoformat()
+        _ = conn.execute(
+            """
+            INSERT INTO product (id, name, tagline, description, features, pricing,
+                target_audience, llm_model, llm_base_url, llm_api_key, batch_size,
+                created_at, updated_at)
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                tagline = excluded.tagline,
+                description = excluded.description,
+                features = excluded.features,
+                pricing = excluded.pricing,
+                target_audience = excluded.target_audience,
+                llm_model = excluded.llm_model,
+                llm_base_url = excluded.llm_base_url,
+                llm_api_key = excluded.llm_api_key,
+                batch_size = excluded.batch_size,
+                updated_at = excluded.updated_at
+            """,
+            (
+                data.get("name", ""),
+                data.get("tagline"),
+                data.get("description"),
+                data.get("features"),
+                data.get("pricing"),
+                data.get("target_audience"),
+                data.get("llm_model"),
+                data.get("llm_base_url"),
+                data.get("llm_api_key"),
+                data.get("batch_size", 0),
+                now,
+                now,
+            ),
+        )
         conn.commit()
     finally:
         conn.close()

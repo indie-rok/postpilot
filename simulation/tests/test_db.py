@@ -9,7 +9,13 @@ import pytest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from db import init_db, get_connection, seed_default_community
+from db import (
+    init_db,
+    get_connection,
+    seed_default_community,
+    get_product,
+    save_product,
+)
 
 
 @pytest.fixture
@@ -103,3 +109,30 @@ def test_seed_idempotent(db_path):
     cur.execute("SELECT COUNT(*) FROM community_profile")
     assert cur.fetchone()[0] == 18
     conn.close()
+
+
+def test_get_product_returns_none_when_empty(db_path):
+    init_db(db_path)
+    assert get_product(db_path) is None
+
+
+def test_save_and_get_product(db_path):
+    init_db(db_path)
+    save_product(
+        db_path,
+        {"name": "TestApp", "tagline": "A test app", "description": "Does testing"},
+    )
+    product = get_product(db_path)
+    assert product is not None
+    assert product["name"] == "TestApp"
+    assert product["tagline"] == "A test app"
+
+
+def test_save_product_upserts(db_path):
+    init_db(db_path)
+    save_product(db_path, {"name": "V1"})
+    save_product(db_path, {"name": "V2", "tagline": "Updated"})
+    product = get_product(db_path)
+    assert product is not None
+    assert product["name"] == "V2"
+    assert product["tagline"] == "Updated"
