@@ -1,10 +1,12 @@
+# pyright: reportMissingImports=false, reportImplicitRelativeImport=false
+
 import asyncio
 import json
 import os
-import random
 import sys
+import uuid
 from pathlib import Path
-from typing import Callable, TypedDict, cast
+from typing import Any, Callable, TypedDict, cast
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -16,6 +18,17 @@ from pydantic import BaseModel, Field
 import scripts.analyze_and_rewrite as analyze_module
 import scripts.generate_html as generate_html_module
 import scripts.generate_scorecard as scorecard_module
+from db import (
+    create_run,
+    create_run_agents,
+    delete_run,
+    get_connection,
+    get_results_for_run,
+    init_db,
+    list_runs,
+    seed_default_community,
+    select_profiles_for_community,
+)
 
 
 JsonPrimitive = str | int | float | bool | None
@@ -26,6 +39,7 @@ JsonDict = dict[str, JsonValue]
 class Profile(TypedDict, total=False):
     username: str
     realname: str
+    archetype: str
     bio: str
     persona: str
     age: int
@@ -45,8 +59,7 @@ STATIC_DIR = BASE_DIR / "static"
 ALL_PROFILES_PATH = PROFILES_DIR / "r_saas_community.json"
 RUN_PROFILES_PATH = PROFILES_DIR / "run_profiles.json"
 RUN_POST_PATH = POSTS_DIR / "run_post.txt"
-
-RUN_TAG = "run"
+APP_DB = str(BASE_DIR / "reddit-sim.db")
 
 analyze_comments: Callable[[list[dict[str, str]]], str] = cast(
     Callable[[list[dict[str, str]]], str], analyze_module.analyze
@@ -59,9 +72,6 @@ fetch_original_post: Callable[[str], str] = cast(
 )
 rewrite_post: Callable[[str, str], str] = cast(
     Callable[[str, str], str], analyze_module.rewrite
-)
-extract_sim_data: Callable[[str, str], JsonDict] = cast(
-    Callable[[str, str], JsonDict], generate_html_module.extract_data
 )
 THREAD_TEMPLATE: str = cast(str, generate_html_module.TEMPLATE)
 
@@ -90,6 +100,8 @@ class SimulationCoordinator:
         self._state_lock: asyncio.Lock = asyncio.Lock()
         self._current_task: asyncio.Task[None] | None = None
         self._llm_config: LLMConfig = LLMConfig()
+        self._current_run_id: int | None = None
+        self._current_tag: str | None = None
 
     async def connect(self, websocket: WebSocket) -> None:
         await websocket.accept()
@@ -117,6 +129,7 @@ class SimulationCoordinator:
                     self._clients.discard(client)
 
     async def start(self, request: SimulateRequest) -> str:
+        tag = f"run_{uuid.uuid4().hex[:8]}"
         async with self._state_lock:
             if self._current_task and not self._current_task.done():
                 raise HTTPException(
@@ -128,20 +141,37 @@ class SimulationCoordinator:
                 llm_base_url=request.llm_base_url,
                 llm_model=request.llm_model,
             )
-            self._current_task = asyncio.create_task(self._run(request))
+            self._current_task = asyncio.create_task(self._run(request, tag))
 
-        return RUN_TAG
+        return tag
 
-    async def _run(self, request: SimulateRequest) -> None:
+    async def _run(self, request: SimulateRequest, tag: str) -> None:
         try:
-            selected = select_diverse_profiles(request.agent_count, ALL_PROFILES_PATH)
+            selected_profiles = select_profiles_for_community(
+                APP_DB, 1, request.agent_count
+            )
+            run_id = create_run(
+                APP_DB,
+                tag,
+                1,
+                request.post_content,
+                request.agent_count,
+                request.total_hours,
+                request.llm_model or None,
+            )
+            _ = create_run_agents(APP_DB, run_id, selected_profiles)
+            self._current_run_id = run_id
+            self._current_tag = tag
+
+            selected: list[Profile] = [
+                _profile_for_runner(profile) for profile in selected_profiles
+            ]
             _ = RUN_PROFILES_PATH.write_text(
                 json.dumps(selected, ensure_ascii=False, indent=2), encoding="utf-8"
             )
             _ = RUN_POST_PATH.write_text(
                 request.post_content.strip() + "\n", encoding="utf-8"
             )
-            cleanup_previous_run(RUN_TAG)
 
             await self.broadcast(
                 {
@@ -168,11 +198,15 @@ class SimulationCoordinator:
                 "--post",
                 str(RUN_POST_PATH.relative_to(BASE_DIR)),
                 "--tag",
-                RUN_TAG,
+                tag,
                 "--profiles",
                 str(RUN_PROFILES_PATH.relative_to(BASE_DIR)),
                 "--total-hours",
                 str(request.total_hours),
+                "--run-id",
+                str(run_id),
+                "--app-db",
+                APP_DB,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,
                 cwd=str(BASE_DIR),
@@ -206,7 +240,7 @@ class SimulationCoordinator:
 
             return_code = await process.wait()
             if return_code == 0:
-                await self.broadcast({"type": "done", "tag": RUN_TAG})
+                await self.broadcast({"type": "done", "tag": self._current_tag})
             else:
                 await self.broadcast(
                     {
@@ -231,6 +265,8 @@ parser.add_argument("--post", required=True)
 parser.add_argument("--tag", required=True)
 parser.add_argument("--profiles", required=True)
 parser.add_argument("--total-hours", required=True, type=int)
+parser.add_argument("--run-id", type=int, default=None)
+parser.add_argument("--app-db", default=None)
 args = parser.parse_args()
 
 simulation_config.TIME_CONFIG = dict(simulation_config.TIME_CONFIG)
@@ -245,98 +281,51 @@ sys.argv = [
     "--profiles",
     args.profiles,
 ]
+if args.run_id is not None:
+    sys.argv += ["--run-id", str(args.run_id)]
+if args.app_db is not None:
+    sys.argv += ["--app-db", args.app_db]
 runpy.run_path("scripts/run_simulation.py", run_name="__main__")
 """
 
 
-def _archetype(username: str) -> str:
-    if "skeptic" in username:
-        return "skeptic"
-    if "founder_" in username:
-        return "founder"
-    if "indie" in username:
-        return "indie"
-    if "hr_" in username:
-        return "hr"
-    if "lurker" in username:
-        return "lurker"
-    if "regular" in username:
-        return "regular"
-    if "vc_" in username:
-        return "vc"
-    return "other"
+def _profile_for_runner(profile: dict[str, Any]) -> Profile:
+    demographics: dict[str, Any] = {}
+    raw_demographics = profile.get("demographics")
+    if isinstance(raw_demographics, str):
+        try:
+            parsed = json.loads(raw_demographics)
+        except json.JSONDecodeError:
+            parsed = {}
+        if isinstance(parsed, dict):
+            demographics = parsed
+    elif isinstance(raw_demographics, dict):
+        demographics = raw_demographics
 
+    runner_profile: Profile = {
+        "username": str(profile.get("username", "")),
+        "realname": str(profile.get("realname", "")),
+        "archetype": str(profile.get("archetype", "Community Regular")),
+        "bio": str(profile.get("bio") or ""),
+        "persona": str(profile.get("persona", "")),
+    }
 
-def select_diverse_profiles(agent_count: int, profiles_path: Path) -> list[Profile]:
-    profiles = cast(
-        list[Profile], json.loads(profiles_path.read_text(encoding="utf-8"))
-    )
-    by_archetype: dict[str, list[Profile]] = {}
-    for profile in profiles:
-        kind = _archetype(profile.get("username", ""))
-        by_archetype.setdefault(kind, []).append(profile)
+    age = demographics.get("age")
+    if isinstance(age, int):
+        runner_profile["age"] = age
 
-    rng = random.SystemRandom()
-    for items in by_archetype.values():
-        rng.shuffle(items)
+    for key in ["gender", "mbti", "country", "profession"]:
+        value = demographics.get(key)
+        if isinstance(value, str) and value:
+            runner_profile[key] = value
 
-    chosen: list[Profile] = []
+    topics = demographics.get("interested_topics")
+    if isinstance(topics, list):
+        runner_profile["interested_topics"] = [
+            topic for topic in topics if isinstance(topic, str)
+        ]
 
-    skeptics = by_archetype.get("skeptic", [])
-    founders = by_archetype.get("founder", [])
-    if not skeptics or not founders:
-        raise RuntimeError("Profiles must include at least one skeptic and one founder")
-
-    chosen.append(skeptics.pop(0))
-    if len(chosen) < agent_count:
-        chosen.append(founders.pop(0))
-
-    rotation = [
-        "founder",
-        "skeptic",
-        "indie",
-        "hr",
-        "regular",
-        "vc",
-        "lurker",
-        "other",
-    ]
-    idx = 0
-    while len(chosen) < agent_count:
-        archetype = rotation[idx % len(rotation)]
-        idx += 1
-        pool = by_archetype.get(archetype, [])
-        if not pool:
-            if all(not by_archetype.get(name, []) for name in rotation):
-                break
-            continue
-        chosen.append(pool.pop(0))
-
-    if len(chosen) < agent_count:
-        raise RuntimeError(
-            f"Unable to pick {agent_count} profiles from available archetypes"
-        )
-
-    return chosen
-
-
-def cleanup_previous_run(tag: str) -> None:
-    targets = [
-        RESULTS_DIR / f"{tag}.db",
-        RESULTS_DIR / f"{tag}-thread.html",
-        RESULTS_DIR / f"{tag}_scorecard.json",
-        RESULTS_DIR / "analysis.md",
-        RESULTS_DIR / "improved-post.md",
-    ]
-    for target in targets:
-        if target.exists():
-            _ = target.unlink()
-
-
-def resolve_profiles_for_tag(tag: str) -> Path:
-    if tag == RUN_TAG and RUN_PROFILES_PATH.exists():
-        return RUN_PROFILES_PATH
-    return ALL_PROFILES_PATH
+    return runner_profile
 
 
 coordinator = SimulationCoordinator()
@@ -349,6 +338,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def startup_init_db() -> None:
+    init_db(APP_DB)
+    seed_default_community(APP_DB, str(ALL_PROFILES_PATH))
 
 
 @app.post("/api/simulate")
@@ -369,14 +364,14 @@ async def progress_socket(websocket: WebSocket) -> None:
 
 @app.get("/api/results/{tag}")
 async def get_results(tag: str):
-    db_path = RESULTS_DIR / f"{tag}.db"
-    if not db_path.exists():
-        raise HTTPException(
-            status_code=404, detail=f"Results not found for tag '{tag}'"
-        )
-
-    profiles_path = resolve_profiles_for_tag(tag)
-    data = extract_sim_data(str(db_path), str(profiles_path))
+    conn = get_connection(APP_DB)
+    try:
+        row = conn.execute("SELECT id FROM run WHERE tag = ?", (tag,)).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Run not found: {tag}")
+    data = get_results_for_run(APP_DB, int(row["id"]))
     return JSONResponse(content=data)
 
 
@@ -430,33 +425,35 @@ class BatchConfig(BaseModel):
 
 @app.post("/api/scorecard/{tag}")
 async def get_scorecard(tag: str, config: BatchConfig = BatchConfig()):
-    db_path = RESULTS_DIR / f"{tag}.db"
-    if not db_path.exists():
-        raise HTTPException(
-            status_code=404, detail=f"Results not found for tag '{tag}'"
-        )
+    conn = get_connection(APP_DB)
+    try:
+        run_row = conn.execute("SELECT id FROM run WHERE tag = ?", (tag,)).fetchone()
+    finally:
+        conn.close()
+    if not run_row:
+        raise HTTPException(status_code=404, detail=f"Run not found: {tag}")
+    run_id = int(run_row["id"])
 
-    cache_path = RESULTS_DIR / f"{tag}_scorecard.json"
-    if cache_path.exists():
-        import json
+    conn = get_connection(APP_DB)
+    try:
+        cached = conn.execute(
+            "SELECT data FROM run_scorecard WHERE run_id = ?", (run_id,)
+        ).fetchone()
+    finally:
+        conn.close()
+    if cached:
+        return JSONResponse(content=json.loads(str(cached["data"])))
 
-        return JSONResponse(content=json.loads(cache_path.read_text()))
-
-    profiles_path = resolve_profiles_for_tag(tag)
     saved = _apply_llm_config(coordinator._llm_config)
     try:
         result = await asyncio.to_thread(
             scorecard_module.generate_scorecard,
-            str(db_path),
-            str(profiles_path),
+            APP_DB,
+            run_id,
             batch_size=config.batch_size,
         )
     finally:
         _restore_env(saved)
-
-    import json
-
-    cache_path.write_text(json.dumps(result, ensure_ascii=False, indent=2))
 
     return JSONResponse(content=result)
 
@@ -465,20 +462,24 @@ async def get_scorecard(tag: str, config: BatchConfig = BatchConfig()):
 async def rewrite_post_endpoint(
     tag: str, config: BatchConfig = BatchConfig()
 ) -> dict[str, str]:
-    db_path = RESULTS_DIR / f"{tag}.db"
-    if not db_path.exists():
-        raise HTTPException(
-            status_code=404, detail=f"Results not found for tag '{tag}'"
-        )
+    conn = get_connection(APP_DB)
+    try:
+        run_row = conn.execute(
+            "SELECT id, post_content FROM run WHERE tag = ?", (tag,)
+        ).fetchone()
+    finally:
+        conn.close()
+    if not run_row:
+        raise HTTPException(status_code=404, detail=f"Run not found: {tag}")
+    run_id = int(run_row["id"])
+    original_post = str(run_row["post_content"])
 
     saved = _apply_llm_config(coordinator._llm_config)
     try:
-        original_post = await asyncio.to_thread(fetch_original_post, str(db_path))
-        profiles_path = resolve_profiles_for_tag(tag)
         scorecard = await asyncio.to_thread(
             scorecard_module.generate_scorecard,
-            str(db_path),
-            str(profiles_path),
+            APP_DB,
+            run_id,
             batch_size=config.batch_size,
         )
         analysis_context = json.dumps(scorecard, indent=2, default=str)
@@ -491,16 +492,35 @@ async def rewrite_post_endpoint(
     return {"improved_post": improved_post}
 
 
+@app.get("/api/runs")
+async def get_runs() -> JSONResponse:
+    runs = list_runs(APP_DB)
+    return JSONResponse(content=runs)
+
+
+@app.delete("/api/runs/{tag}")
+async def delete_run_endpoint(tag: str) -> dict[str, str]:
+    conn = get_connection(APP_DB)
+    try:
+        row = conn.execute("SELECT id FROM run WHERE tag = ?", (tag,)).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Run not found: {tag}")
+    delete_run(APP_DB, int(row["id"]))
+    return {"status": "deleted"}
+
+
 @app.get("/api/thread/{tag}", response_class=HTMLResponse)
 async def get_thread(tag: str) -> HTMLResponse:
-    db_path = RESULTS_DIR / f"{tag}.db"
-    if not db_path.exists():
-        raise HTTPException(
-            status_code=404, detail=f"Results not found for tag '{tag}'"
-        )
-
-    profiles_path = resolve_profiles_for_tag(tag)
-    data = extract_sim_data(str(db_path), str(profiles_path))
+    conn = get_connection(APP_DB)
+    try:
+        row = conn.execute("SELECT id FROM run WHERE tag = ?", (tag,)).fetchone()
+    finally:
+        conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail=f"Run not found: {tag}")
+    data = get_results_for_run(APP_DB, int(row["id"]))
     html = THREAD_TEMPLATE.replace(
         "__DATA__", json.dumps(data, indent=2, ensure_ascii=False, default=str)
     )
