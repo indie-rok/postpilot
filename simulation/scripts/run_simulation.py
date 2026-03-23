@@ -277,10 +277,8 @@ async def run_simulation(
             completed_at=datetime.now(timezone.utc).isoformat(),
         )
 
-    interviews_path = os.path.join(results_dir, f"{tag}_interviews.json")
-    with open(interviews_path, "w") as f:
-        json.dump(interviews, f, indent=2, ensure_ascii=False)
-    print(f"Interviews saved: {len(interviews)} responses → {interviews_path}")
+    interview_count = len(interviews) if isinstance(interviews, list) else 0
+    print(f"Interviews complete: {interview_count} responses saved to DB")
 
     emit_progress(phase="complete", llm_calls=llm_calls)
 

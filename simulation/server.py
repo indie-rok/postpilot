@@ -6,7 +6,7 @@ import os
 import sys
 import uuid
 from pathlib import Path
-from typing import Any, Callable, TypedDict, cast
+from typing import Any, TypedDict, cast
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -61,18 +61,6 @@ RUN_PROFILES_PATH = PROFILES_DIR / "run_profiles.json"
 RUN_POST_PATH = POSTS_DIR / "run_post.txt"
 APP_DB = str(BASE_DIR / "reddit-sim.db")
 
-analyze_comments: Callable[[list[dict[str, str]]], str] = cast(
-    Callable[[list[dict[str, str]]], str], analyze_module.analyze
-)
-fetch_comments: Callable[[str], list[dict[str, str]]] = cast(
-    Callable[[str], list[dict[str, str]]], analyze_module.get_comments
-)
-fetch_original_post: Callable[[str], str] = cast(
-    Callable[[str], str], analyze_module.get_original_post
-)
-rewrite_post: Callable[[str, str], str] = cast(
-    Callable[[str, str], str], analyze_module.rewrite
-)
 THREAD_TEMPLATE: str = cast(str, generate_html_module.TEMPLATE)
 
 _ = load_dotenv(BASE_DIR / ".env")
@@ -399,20 +387,39 @@ def _restore_env(originals: dict[str, str]) -> None:
 
 @app.post("/api/analyze/{tag}")
 async def analyze_tag(tag: str) -> dict[str, str]:
-    db_path = RESULTS_DIR / f"{tag}.db"
-    if not db_path.exists():
-        raise HTTPException(
-            status_code=404, detail=f"Results not found for tag '{tag}'"
-        )
+    conn = get_connection(APP_DB)
+    try:
+        run_row = conn.execute(
+            "SELECT id, post_content FROM run WHERE tag = ?", (tag,)
+        ).fetchone()
+    finally:
+        conn.close()
+    if not run_row:
+        raise HTTPException(status_code=404, detail=f"Run not found: {tag}")
+    run_id = run_row["id"]
+
+    # Get comments from app DB
+    conn = get_connection(APP_DB)
+    try:
+        rows = conn.execute(
+            "SELECT c.content, a.realname AS author FROM run_comment c JOIN run_agent a ON c.agent_id = a.id WHERE c.run_id = ?",
+            (run_id,),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        raise HTTPException(status_code=400, detail="No comments found to analyze")
+
+    comments = [{"content": row["content"], "author": row["author"]} for row in rows]
+    original_post = run_row["post_content"]
 
     saved = _apply_llm_config(coordinator._llm_config)
     try:
-        comments = await asyncio.to_thread(fetch_comments, str(db_path))
-        if not comments:
-            raise HTTPException(status_code=400, detail="No comments found to analyze")
-        original_post = await asyncio.to_thread(fetch_original_post, str(db_path))
-        analysis = await asyncio.to_thread(analyze_comments, comments)
-        improved_post = await asyncio.to_thread(rewrite_post, original_post, analysis)
+        analysis = await asyncio.to_thread(analyze_module.analyze, comments)
+        improved_post = await asyncio.to_thread(
+            analyze_module.rewrite, original_post, analysis
+        )
     finally:
         _restore_env(saved)
 
@@ -484,7 +491,7 @@ async def rewrite_post_endpoint(
         )
         analysis_context = json.dumps(scorecard, indent=2, default=str)
         improved_post = await asyncio.to_thread(
-            rewrite_post, original_post, analysis_context
+            analyze_module.rewrite, original_post, analysis_context
         )
     finally:
         _restore_env(saved)
