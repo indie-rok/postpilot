@@ -372,6 +372,48 @@
     }
     .progress-step { color: var(--text); white-space: nowrap; }
     .progress-calls { color: var(--muted); white-space: nowrap; }
+
+    .run-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 10px;
+      margin-bottom: 4px;
+      background: var(--bg);
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text);
+      transition: background 0.2s;
+    }
+    .run-item:hover { background: var(--border); }
+    .run-item.active { border-left: 3px solid var(--brand); }
+    .run-item-info { flex: 1; min-width: 0; }
+    .run-item-tag { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .run-item-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .run-item-delete {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px;
+      font-size: 11px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .run-item:hover .run-item-delete { opacity: 1; }
+    .run-item-delete:hover { color: var(--brand); }
+    .run-item-status {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .run-item-status.complete { background: var(--success); }
+    .run-item-status.running { background: var(--brand); }
+    .run-item-status.pending { background: var(--muted); }
+    .run-item-status.failed { background: #f44336; }
   </style>
 </head>
 <body>
@@ -442,6 +484,11 @@
           <span class="progress-calls" id="progress-calls"></span>
         </div>
         <div class="log-container" id="log-container"></div>
+      </div>
+
+      <div id="run-history" style="margin-top: 16px;">
+        <div style="font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Run History</div>
+        <div id="run-list"></div>
       </div>
     </div>
 
@@ -600,6 +647,7 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     const progressStep = document.getElementById('progress-step');
     const progressCalls = document.getElementById('progress-calls');
     const logContainer = document.getElementById('log-container');
+    const runList = document.getElementById('run-list');
     
     const resultsPanel = document.getElementById('results-panel');
     const tabs = document.querySelectorAll('.tab');
@@ -731,7 +779,7 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
           } else if (data.type === 'progress') {
             updateProgress(data);
           } else if (data.type === 'done') {
-            simulationDone();
+            simulationDone(data.tag);
           } else if (data.type === 'error') {
             appendLog(`ERROR: ${data.message}`);
             resetLaunchButton();
@@ -801,7 +849,7 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
       }
     });
 
-    async function simulationDone() {
+    async function simulationDone(tag) {
       progressTitle.innerHTML = '✓ Simulation complete';
       progressTitle.style.color = 'var(--success)';
       
@@ -812,7 +860,9 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
       
       setTimeout(resetLaunchButton, 3000);
       
-      await loadResults();
+      activeRunTag = tag;
+      await loadResults(tag);
+      loadRunHistory();
     }
 
     function resetLaunchButton() {
@@ -824,9 +874,11 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     }
 
     // Results
-    async function loadResults() {
+    async function loadResults(tag) {
       try {
-        const results = await fetch('/api/results/run').then(r => r.json());
+        const resp = await fetch('/api/results/' + (tag || activeRunTag));
+        if (!resp.ok) throw new Error('Failed to load results');
+        const results = await resp.json();
         renderThread(results);
       } catch (err) {
         appendLog(`Error loading results: ${err.message}`);
@@ -1151,6 +1203,68 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
             '"': '&quot;'
           }[tag]));
     }
+
+    let activeRunTag = null;
+
+    async function loadRunHistory() {
+      try {
+        const resp = await fetch('/api/runs');
+        const runs = await resp.json();
+        renderRunList(runs);
+      } catch(e) {
+        console.error('Failed to load run history:', e);
+      }
+    }
+
+    function renderRunList(runs) {
+      if (!runs.length) {
+        runList.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px;">No runs yet</div>';
+        return;
+      }
+      runList.innerHTML = runs.map(run => {
+        const isActive = run.tag === activeRunTag ? ' active' : '';
+        const date = new Date(run.created_at).toLocaleDateString();
+        const time = new Date(run.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        const comments = run.comment_count || 0;
+        return '<div class="run-item' + isActive + '" data-tag="' + run.tag + '" onclick="loadRun(\'' + run.tag + '\')">' +
+          '<div class="run-item-info">' +
+          '  <div class="run-item-tag"><span class="run-item-status ' + run.status + '"></span>' + run.tag + '</div>' +
+          '  <div class="run-item-meta">' + run.agent_count + ' agents · ' + comments + ' comments · ' + date + ' ' + time + '</div>' +
+          '</div>' +
+          '<button class="run-item-delete" onclick="event.stopPropagation(); deleteRun(\'' + run.tag + '\')" title="Delete run">&times;</button>' +
+          '</div>';
+      }).join('');
+    }
+
+    async function loadRun(tag) {
+      activeRunTag = tag;
+      try {
+        const resp = await fetch('/api/results/' + tag);
+        if (!resp.ok) throw new Error('Failed to load results');
+        const data = await resp.json();
+        renderThread(data);
+        loadRunHistory();
+      } catch(e) {
+        console.error('Failed to load run:', e);
+      }
+    }
+
+    async function deleteRun(tag) {
+      if (!confirm('Delete this run?')) return;
+      try {
+        await fetch('/api/runs/' + tag, {method: 'DELETE'});
+        if (activeRunTag === tag) {
+          activeRunTag = null;
+          threadContainer.innerHTML = '<div class="no-comments-yet">Launch a simulation to see agent reactions</div>';
+          statsBar.classList.add('hidden');
+        }
+        loadRunHistory();
+      } catch(e) {
+        console.error('Failed to delete run:', e);
+      }
+    }
+
+    loadRunHistory();
   </script>
 </body>
 </html>
