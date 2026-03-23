@@ -152,6 +152,33 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
+    /* Post preview */
+    .post-preview {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+      white-space: pre-wrap;
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+    .post-preview-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+    .no-comments-yet {
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      padding: 32px 0;
+    }
+
     /* Thread styles */
     .stats-bar { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-bottom: 16px; padding: 12px; background: var(--bg); border-radius: 4px; }
     
@@ -452,7 +479,7 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
       </div>
 
       <!-- Results Panel -->
-      <div class="card hidden" id="results-panel">
+      <div class="card" id="results-panel">
         <div class="tabs">
           <div class="tab active" data-target="tab-thread">Thread</div>
           <div class="tab" data-target="tab-analysis">Analysis</div>
@@ -460,12 +487,16 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
 
         <!-- Thread Tab -->
         <div id="tab-thread" class="tab-content active">
-          <div class="stats-bar" id="stats-bar">
+          <div class="post-preview-label">Your Post</div>
+          <div class="post-preview" id="post-preview"></div>
+          <div class="stats-bar hidden" id="stats-bar">
             <span>Score: <strong id="stat-score">0</strong></span>
             <span>Comments: <strong id="stat-comments">0</strong></span>
             <span>Agents: <strong id="stat-agents">0</strong></span>
           </div>
-          <div id="thread-container"></div>
+          <div id="thread-container">
+            <div class="no-comments-yet" id="no-comments-msg">Launch a simulation to see agent reactions</div>
+          </div>
         </div>
 
         <!-- Scorecard Tab -->
@@ -577,6 +608,9 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     const tabs = document.querySelectorAll('.tab');
     const tabContents = document.querySelectorAll('.tab-content');
     
+    const postPreview = document.getElementById('post-preview');
+    const noCommentsMsg = document.getElementById('no-comments-msg');
+    const statsBar = document.getElementById('stats-bar');
     const threadContainer = document.getElementById('thread-container');
     const analyzeBtn = document.getElementById('analyze-btn');
     const scorecardEl = document.getElementById('scorecard');
@@ -613,6 +647,12 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     agentsSlider.addEventListener('input', updateCalc);
     hoursSlider.addEventListener('input', updateCalc);
     updateCalc();
+
+    function syncPostPreview() {
+      postPreview.textContent = postContent.value || '';
+    }
+    postContent.addEventListener('input', syncPostPreview);
+    syncPostPreview();
 
     // Tabs logic
     tabs.forEach(tab => {
@@ -732,7 +772,6 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
       launchBtn.style.color = 'var(--muted)';
       
       progressPanel.classList.remove('hidden');
-      resultsPanel.classList.add('hidden');
       progressTitle.innerHTML = '<span class="spinner" id="progress-spinner"></span>Running Simulation...';
       progressTitle.style.color = '#fff';
       logContainer.innerHTML = '';
@@ -740,6 +779,8 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
       progressStrip.classList.add('hidden');
       progressFill.style.width = '0%';
       progressCalls.textContent = '';
+      statsBar.classList.add('hidden');
+      threadContainer.innerHTML = '<div class="no-comments-yet">Simulation in progress...</div>';
       
       connectWebSocket();
       appendLog("Starting simulation...");
@@ -780,7 +821,6 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
       setTimeout(resetLaunchButton, 3000);
       
       await loadResults();
-      resultsPanel.classList.remove('hidden');
     }
 
     function resetLaunchButton() {
@@ -835,6 +875,7 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
       document.getElementById('stat-score').textContent = stats.score || 0;
       document.getElementById('stat-comments').textContent = stats.total_comments || data.comments.length || 0;
       document.getElementById('stat-agents').textContent = stats.commenting_agents + '/' + stats.total_agents;
+      statsBar.classList.remove('hidden');
       
       threadContainer.innerHTML = '';
       
