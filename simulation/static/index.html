@@ -1269,13 +1269,26 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
         postLabel.textContent = 'Post (' + tag + ')';
         launchBtn.classList.add('hidden');
         newSimBtn.classList.remove('hidden');
-        scorecardEl.classList.add('hidden');
-        analyzeBtn.style.display = '';
-        analyzeBtn.disabled = false;
-        analyzeBtn.textContent = '\uD83D\uDCCA Generate Scorecard';
         if (typeof rewriteResult !== 'undefined') rewriteResult.classList.add('hidden');
         if (typeof rewriteBtn !== 'undefined') { rewriteBtn.style.display = ''; rewriteBtn.disabled = false; }
         loadRunHistory();
+
+        const scResp = await fetch('/api/scorecard/' + tag, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({batch_size: parseInt(batchSizeInput.value) || 0}),
+        });
+        if (scResp.ok) {
+          const scData = await scResp.json();
+          analyzeBtn.style.display = 'none';
+          scorecardEl.classList.remove('hidden');
+          renderScorecard(scData);
+        } else {
+          scorecardEl.classList.add('hidden');
+          analyzeBtn.style.display = '';
+          analyzeBtn.disabled = false;
+          analyzeBtn.textContent = '\uD83D\uDCCA Generate Scorecard';
+        }
       } catch(e) {
         console.error('Failed to load run:', e);
       }
