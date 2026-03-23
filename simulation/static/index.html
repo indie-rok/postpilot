@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Reddit Simulation Lab</title>
+  <title>Post Pilot</title>
   <style>
     :root {
       --bg: #1a1a1b;
@@ -149,6 +149,7 @@
       border-bottom: 2px solid transparent;
     }
     .tab.active { color: var(--text); border-bottom-color: var(--brand); }
+    .tab .tab-badge { font-size: 10px; background: var(--success); color: #fff; padding: 1px 6px; border-radius: 8px; margin-left: 6px; font-weight: 700; }
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
@@ -178,7 +179,7 @@
     }
 
     /* Thread styles */
-    .stats-bar { display: flex; gap: 16px; font-size: 13px; color: var(--muted); margin-bottom: 16px; padding: 12px; background: var(--bg); border-radius: 4px; }
+
     
     .comment { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
     .comment:last-child { border-bottom: none; }
@@ -370,8 +371,8 @@
       border-radius: 2px;
       transition: width 0.3s ease;
     }
-    .progress-step { color: var(--text); white-space: nowrap; }
-    .progress-calls { color: var(--muted); white-space: nowrap; }
+    .progress-step { color: var(--text); width: 100%; line-height: 1.6; font-size: 13px; }
+    .progress-calls { display: none; }
 
     .run-item {
       display: flex;
@@ -503,7 +504,11 @@
     .view { display: none; }
     .view.active { display: block; }
   
-  .product-bar { background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+    .app-header { padding: 12px 0; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+    .app-wordmark { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
+    .app-wordmark span { color: var(--brand); }
+    .app-subtitle { font-size: 12px; color: var(--muted); margin-left: 12px; }
+    .product-bar { background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
   .product-info { display: flex; align-items: center; gap: 12px; }
   .product-icon { width: 36px; height: 36px; background: var(--brand); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; color: #fff; }
   .product-name { font-size: 16px; font-weight: 700; color: #fff; }
@@ -516,7 +521,8 @@
 
   .community-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-bottom: 40px; }
   .community-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; transition: border-color 0.15s; }
-  .community-card:hover { border-color: var(--brand); }
+    .community-card:hover { border-color: var(--brand); }
+    .community-card:hover .delete-community-btn { opacity: 1 !important; }
   .community-card.add-new { border-style: dashed; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; min-height: 180px; }
   .community-card.add-new:hover { border-color: var(--brand); background: rgba(255,69,0,0.05); }
   .add-icon { font-size: 28px; color: var(--muted); margin-bottom: 8px; }
@@ -577,18 +583,17 @@
 
   
   .sim-top-bar {
-    background: var(--card);
-    border-bottom: 1px solid var(--border);
-    padding: 12px 32px;
+    padding: 12px 0;
+    margin-bottom: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin: -20px -20px 20px -20px;
   }
-  .sim-top-bar-left { display: flex; align-items: center; gap: 16px; }
+  .sim-top-bar-left { display: flex; align-items: center; gap: 12px; }
+  .sim-top-bar-right { display: flex; align-items: center; gap: 12px; }
   .sim-community-badge {
-    font-size: 14px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 600;
     padding: 4px 12px;
     background: rgba(255,69,0,0.15);
     border-radius: 6px;
@@ -602,50 +607,21 @@
 <div id="app">
   <div id="view-setup" class="view">
 
-<div style="max-width:600px;margin:60px auto;padding:0 24px;">
-  <h1 style="font-size:24px;margin-bottom:8px;">Set up your product</h1>
-  <p class="subtitle" style="margin-bottom:32px;">Tell us about your product so simulations can be tailored to it</p>
+<div style="max-width:700px;margin:60px auto;padding:0 24px;">
+  <div style="text-align:center;margin-bottom:32px;">
+    <div class="app-wordmark" style="font-size:32px;display:inline;">Post<span>Pilot</span></div>
+    <div style="color:var(--muted);font-size:14px;margin-top:6px;">Test your post before you post</div>
+  </div>
+  <h2 style="font-size:18px;margin-bottom:8px;">Your Product</h2>
+  <p style="color:var(--muted);font-size:14px;margin-bottom:24px;">Loaded from <code style="background:var(--card);padding:2px 6px;border-radius:4px;">company.md</code></p>
   
-  <div class="form-group">
-    <div class="small-label">Product Name *</div>
-    <input type="text" id="setup-name" placeholder="e.g. FlowPulse">
-  </div>
-  <div class="form-group">
-    <div class="small-label">Tagline</div>
-    <input type="text" id="setup-tagline" placeholder="One-liner description">
-  </div>
-  <div class="form-group">
-    <div class="small-label">Description</div>
-    <textarea id="setup-description" style="height:100px;" placeholder="What does your product do?"></textarea>
-  </div>
-  <div class="form-group">
-    <div class="small-label">Key Features</div>
-    <textarea id="setup-features" style="height:80px;" placeholder="Bullet list of key features"></textarea>
-  </div>
-  <div class="form-group">
-    <div class="small-label">Pricing</div>
-    <input type="text" id="setup-pricing" placeholder="e.g. /mo starter, /mo pro">
-  </div>
-  <div class="form-group">
-    <div class="small-label">Target Audience</div>
-    <input type="text" id="setup-target" placeholder="e.g. SaaS founders, HR managers">
+  <div id="setup-md-content" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:24px;font-size:14px;line-height:1.7;white-space:pre-wrap;max-height:60vh;overflow-y:auto;"></div>
+  <div id="setup-no-file" class="hidden" style="background:rgba(255,152,0,0.1);border:1px solid rgba(255,152,0,0.3);border-radius:8px;padding:24px;text-align:center;">
+    <div style="font-size:16px;font-weight:600;margin-bottom:8px;">No company.md found</div>
+    <div style="color:var(--muted);font-size:13px;">Create a <code>company.md</code> file in your project root with your product info, then refresh.</div>
   </div>
   
-  <h2 style="margin-top:24px;">Simulation Settings</h2>
-  <div class="form-group">
-    <div class="small-label">LLM Model</div>
-    <input type="text" id="setup-llm-model" value="gpt-5-mini">
-  </div>
-  <div class="form-group">
-    <div class="small-label">LLM Endpoint</div>
-    <input type="text" id="setup-llm-url" placeholder="e.g. https://api.openai.com/v1">
-  </div>
-  <div class="form-group">
-    <div class="small-label">LLM API Key</div>
-    <input type="password" id="setup-llm-key" placeholder="Your API key">
-  </div>
-  
-  <button type="button" id="setup-save-btn" style="margin-top:16px;">Save & Continue</button>
+  <button type="button" id="setup-continue-btn" style="margin-top:20px;">Continue to Dashboard</button>
 </div>
 </div>
   <div id="view-dashboard" class="view">
@@ -702,10 +678,10 @@
   <div id="view-add-community" class="view">
 
 <div id="add-community-content">
-  <div class="product-bar">
-    <div class="product-info">
-      <div class="product-name" id="add-comm-product-name">Product</div>
-    </div>
+  <div class="app-header">
+    <a href="#" onclick="navigateTo('/dashboard'); return false;" style="text-decoration:none;">
+      <span class="app-wordmark" style="font-size:18px;">Post<span>Pilot</span></span>
+    </a>
     <a href="#" onclick="navigateTo('/dashboard'); return false;" class="back-link">&larr; Back to Dashboard</a>
   </div>
   <div class="main" style="max-width: 700px;">
@@ -758,9 +734,14 @@
   
 <div class="sim-top-bar">
   <div class="sim-top-bar-left">
-    <a href="#" onclick="navigateTo('/dashboard'); return false;" class="back-link">&larr; Dashboard</a>
+    <a href="#" onclick="navigateTo('/dashboard'); return false;" style="text-decoration:none;">
+      <span class="app-wordmark" style="font-size:18px;">Post<span>Pilot</span></span>
+    </a>
+  </div>
+  <div class="sim-top-bar-right">
     <span class="sim-community-badge" id="sim-community-name">Community</span>
     <span class="sim-persona-count" id="sim-persona-count">0 personas</span>
+    <a href="#" onclick="navigateTo('/dashboard'); return false;" class="back-link">&larr; Back to Dashboard</a>
   </div>
 </div>
 
@@ -788,32 +769,16 @@
         8 rounds · ~40 LLM calls · ~2 minutes
       </div>
 
-      <details>
-        <summary>⚙ LLM Settings</summary>
-        <div class="form-group">
-          <div class="small-label">API Key</div>
-          <input type="password" id="api-key" placeholder="Falls back to .env if empty">
-        </div>
-        <div class="form-group">
-          <div class="small-label">Endpoint</div>
-          <input type="text" id="base-url" value="http://35.181.50.2:8317/v1">
-        </div>
-        <div class="form-group">
-          <div class="small-label">Model</div>
-          <input type="text" id="llm-model" value="gpt-5-mini">
-        </div>
-        <div class="form-group">
-          <div class="small-label" style="display:flex;justify-content:space-between;">
-            <span>Batch Size</span>
-            <span style="color:var(--muted);font-weight:400;">0 = all at once</span>
-          </div>
-          <input type="text" id="batch-size" value="0">
-        </div>
-      </details>
+      <button type="button" id="launch-btn" style="width:100%;margin-top:8px;">🚀 Launch Simulation</button>
+
+      <input type="hidden" id="api-key" value="">
+      <input type="hidden" id="base-url" value="">
+      <input type="hidden" id="llm-model" value="gpt-5-mini">
+      <input type="hidden" id="batch-size" value="0">
 
       <!-- Progress Panel (in sidebar) -->
       <div class="hidden" id="progress-panel" style="margin-top: 16px;">
-        <h2 id="progress-title" style="font-size: 14px; margin-bottom: 8px;"><span class="spinner" id="progress-spinner"></span>Running Simulation...</h2>
+        <h2 id="progress-title" class="hidden" style="font-size: 14px; margin-bottom: 8px;"><span class="spinner" id="progress-spinner"></span>Running Simulation...</h2>
 
         <div class="progress-strip hidden" id="progress-strip">
           <span class="progress-pill" id="progress-pill">SETUP</span>
@@ -826,10 +791,7 @@
         <div class="log-container" id="log-container"></div>
       </div>
 
-      <div id="run-history" style="margin-top: 16px;">
-        <div style="font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">Run History</div>
-        <div id="run-list"></div>
-      </div>
+
     </div>
 
     <!-- Right Side (Results) -->
@@ -839,17 +801,17 @@
       <div class="card" id="results-panel">
         <div class="tabs">
           <div class="tab active" data-target="tab-thread">Thread</div>
-          <div class="tab" data-target="tab-analysis">Analysis</div>
+          <div class="tab hidden" data-target="tab-analysis" id="analysis-tab">Analysis</div>
         </div>
 
         <!-- Thread Tab -->
         <div id="tab-thread" class="tab-content active">
-          
-          </div>
 
-          <button type="button" id="launch-btn" style="width: 100%; margin-bottom: 12px;">🚀 Launch Simulation</button>
           <button type="button" id="new-sim-btn" class="hidden" style="width: 100%; margin-bottom: 12px; background: var(--border); color: var(--text);">+ New Simulation</button>
-          <div class="post-preview-label" id="post-label">Your Post</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <div class="post-preview-label" id="post-label" style="margin-bottom:0;">Your Post</div>
+            <button type="button" id="suggest-post-btn" style="font-size:12px;padding:4px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:4px;cursor:pointer;width:auto;">✨ Suggest Post</button>
+          </div>
           <div id="post-readonly" class="post-preview hidden" style="white-space: pre-wrap;"></div>
           <textarea id="post-content" class="post-preview" style="height: 300px; resize: vertical; border: 1px solid var(--border); cursor: text;">We built a tool that predicts employee burnout before it turns into a resignation. Here's what we learned from 14 beta companies.
 
@@ -879,11 +841,10 @@ Questions:
 If you want to check it out: flowpulse.io — we just opened early access. No credit card required.
 
 — Maya</textarea>
-          <div class="stats-bar hidden" id="stats-bar">
-            <span>Score: <strong id="stat-score">0</strong></span>
-            <span>Comments: <strong id="stat-comments">0</strong></span>
-            <span>Agents: <strong id="stat-agents">0</strong></span>
+          <div class="hidden" id="generating-comments" style="display:flex;align-items:center;gap:8px;padding:12px 0;color:var(--muted);font-size:13px;">
+            <span class="spinner"></span> Generating comments...
           </div>
+
           <div id="thread-container">
             <div class="no-comments-yet" id="no-comments-msg">Launch a simulation to see agent reactions</div>
           </div>
@@ -891,7 +852,10 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
 
         <!-- Scorecard Tab -->
         <div id="tab-analysis" class="tab-content">
-          <button id="analyze-btn" style="margin-bottom: 20px;">📊 Generate Scorecard</button>
+          <div id="analysis-loading" style="text-align:center;padding:40px 0;color:var(--muted);">
+            <span class="spinner" style="display:inline-block;margin-bottom:12px;"></span>
+            <div style="font-size:13px;">Generating scorecard...</div>
+          </div>
 
           <div id="scorecard" class="hidden">
             <div class="scorecard-header">
@@ -967,6 +931,7 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
       </div>
 
     </div>
+  </div>
   </div>
 
   <div class="modal-overlay hidden" id="edit-modal">
@@ -1048,43 +1013,72 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
 
     window.addEventListener('popstate', routeToView);
 
-    function initSetup() {}
+    async function initSetup() {
+      const mdEl = document.getElementById('setup-md-content');
+      const noFileEl = document.getElementById('setup-no-file');
+      const btn = document.getElementById('setup-continue-btn');
+      
+      try {
+        const resp = await fetch('/api/company-md');
+        if (!resp.ok) {
+          mdEl.classList.add('hidden');
+          noFileEl.classList.remove('hidden');
+          btn.classList.add('hidden');
+          return;
+        }
+        const data = await resp.json();
+        mdEl.textContent = data.content;
+        mdEl.classList.remove('hidden');
+        noFileEl.classList.add('hidden');
+        btn.classList.remove('hidden');
 
-document.getElementById('setup-save-btn').addEventListener('click', async () => {
-  const name = document.getElementById('setup-name').value.trim();
-  if (!name) { alert('Product name is required'); return; }
-  
-  const btn = document.getElementById('setup-save-btn');
-  btn.disabled = true;
-  btn.textContent = 'Saving...';
-  
-  try {
-    const resp = await fetch('/api/product', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        name,
-        tagline: document.getElementById('setup-tagline').value.trim() || null,
-        description: document.getElementById('setup-description').value.trim() || null,
-        features: document.getElementById('setup-features').value.trim() || null,
-        pricing: document.getElementById('setup-pricing').value.trim() || null,
-        target_audience: document.getElementById('setup-target').value.trim() || null,
-        llm_model: document.getElementById('setup-llm-model').value.trim() || null,
-        llm_base_url: document.getElementById('setup-llm-url').value.trim() || null,
-        llm_api_key: document.getElementById('setup-llm-key').value.trim() || null,
-      }),
+        btn._companyData = data;
+      } catch (e) {
+        mdEl.classList.add('hidden');
+        noFileEl.classList.remove('hidden');
+        btn.classList.add('hidden');
+      }
+    }
+
+    document.getElementById('setup-continue-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('setup-continue-btn');
+      const data = btn._companyData || {};
+      
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+      
+      try {
+        await fetch('/api/product', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            name: data.name || 'My Product',
+            tagline: data.tagline || null,
+            description: data.content || null,
+          }),
+        });
+        navigateTo('/dashboard');
+      } catch (err) {
+        alert('Error: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Continue to Dashboard';
+      }
     });
-    if (!resp.ok) throw new Error('Failed to save');
-    navigateTo('/dashboard');
-  } catch (err) {
-    alert('Error: ' + err.message);
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Save & Continue';
-  }
-});
 
     
+async function deleteCommunity(id, name) {
+  if (!confirm('Delete community ' + name + ' and all its personas?')) return;
+  const resp = await fetch('/api/communities/' + id, { method: 'DELETE' });
+  if (resp.ok) initDashboard();
+}
+
+async function deleteDashboardRun(tag) {
+  if (!confirm('Delete run ' + tag + '?')) return;
+  const resp = await fetch('/api/runs/' + tag, { method: 'DELETE' });
+  if (resp.ok) initDashboard();
+}
+
 async function initDashboard() {
   const [productResp, commResp, runsResp] = await Promise.all([
     fetch('/api/product'),
@@ -1106,13 +1100,10 @@ function renderDashboard(product, communities, runs) {
   const initial = product.name ? product.name.charAt(0).toUpperCase() : 'P';
   
   let html = `
-    <div class="product-bar">
-      <div class="product-info">
-        <div class="product-icon">${initial}</div>
-        <div>
-          <div class="product-name">${escapeHTML(product.name || 'Your Product')}</div>
-          <div class="product-tagline">${escapeHTML(product.tagline || '')}</div>
-        </div>
+    <div class="app-header">
+      <div style="display:flex;align-items:baseline;">
+        <div class="app-wordmark">Post<span>Pilot</span></div>
+        <div class="app-subtitle">Test your post before you post</div>
       </div>
       <button class="settings-btn" onclick="document.getElementById('settings-panel').classList.add('open')">Settings</button>
     </div>
@@ -1127,7 +1118,8 @@ function renderDashboard(product, communities, runs) {
     const timeAgo = lastRun ? new Date(lastRun).toLocaleDateString() : 'Never';
     
     html += `
-      <div class="community-card">
+      <div class="community-card" style="position:relative;">
+        <button type="button" onclick="deleteCommunity(${c.id}, '${escapeHTML(c.subreddit)}')" style="position:absolute;top:8px;right:8px;width:auto;background:transparent;border:none;color:#c62828;cursor:pointer;font-size:16px;font-weight:700;padding:2px 6px;line-height:1;opacity:0;transition:opacity 0.15s;" title="Delete community" class="delete-community-btn">✕</button>
         <div class="community-name">${escapeHTML(c.subreddit)}</div>
         <div class="community-meta">
           <span>${c.profile_count} personas &middot; ${cRuns.length} runs</span>
@@ -1161,6 +1153,7 @@ function renderDashboard(product, communities, runs) {
             <th>Comments</th>
             <th>Agents</th>
             <th>When</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -1169,21 +1162,25 @@ function renderDashboard(product, communities, runs) {
     runs.forEach(r => {
       const c = communities.find(comm => comm.id === r.community_id);
       const cName = c ? c.subreddit : 'Unknown';
-      const score = r.score || 0;
-      let gradeStr = 'D', gradeClass = 'red';
-      if (score >= 8) { gradeStr = 'A'; gradeClass = 'green'; }
-      else if (score >= 6) { gradeStr = 'B'; gradeClass = 'green'; }
-      else if (score >= 4) { gradeStr = 'C'; gradeClass = 'yellow'; }
+      const grade = r.grade || null;
+      let gradeStr = '—', gradeClass = '';
+      if (grade) {
+        gradeStr = grade;
+        if (['A+', 'A', 'B+', 'B'].includes(grade)) gradeClass = 'green';
+        else if (['C+', 'C'].includes(grade)) gradeClass = 'yellow';
+        else gradeClass = 'red';
+      }
       const date = new Date(r.created_at).toLocaleDateString();
       
       html += `
-        <tr onclick="navigateTo('/simulate/' + ${r.community_id} + '?run=' + '${r.tag}')">
-          <td><span class="status-dot complete"></span><span class="tag-text">${r.tag}</span></td>
-          <td><span class="subreddit-label">${escapeHTML(cName)}</span></td>
-          <td><span class="grade-badge ${gradeClass}">${gradeStr}</span></td>
-          <td>${r.comments_count || 0}</td>
+        <tr>
+          <td onclick="navigateTo('/simulate/' + ${r.community_id} + '?run=' + '${r.tag}')" style="cursor:pointer;"><span class="status-dot complete"></span><span class="tag-text">${r.tag}</span></td>
+          <td onclick="navigateTo('/simulate/' + ${r.community_id} + '?run=' + '${r.tag}')" style="cursor:pointer;"><span class="subreddit-label">${escapeHTML(cName)}</span></td>
+          <td>${gradeClass ? '<span class="grade-badge ' + gradeClass + '">' + escapeHTML(gradeStr) + '</span>' : '—'}</td>
+          <td>${r.comment_count || 0}</td>
           <td>${r.agent_count || 0}</td>
           <td class="time-ago">${date}</td>
+          <td><button type="button" onclick="event.stopPropagation();deleteDashboardRun('${r.tag}')" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:4px 8px;" title="Delete run">🗑</button></td>
         </tr>
       `;
     });
@@ -1340,7 +1337,19 @@ function renderNewPersonas(profiles) {
     
 async function initSimulateView(communityId) {
   activeCommunityId = communityId;
-  
+  simulationRunning = false;
+  if (ws) { ws.close(); ws = null; }
+
+  progressPanel.classList.add('hidden');
+  progressStrip.classList.add('hidden');
+  progressFill.style.width = '0%';
+  progressCalls.textContent = '';
+  logContainer.innerHTML = '';
+  threadContainer.innerHTML = '<div class="no-comments-yet" id="no-comments-msg">Launch a simulation to see agent reactions</div>';
+  scorecardEl.classList.add('hidden');
+  hideAnalysisTab();
+  tabs[0].click();
+
   const [commResp, productResp] = await Promise.all([
     fetch('/api/communities'),
     fetch('/api/product'),
@@ -1370,11 +1379,12 @@ async function initSimulateView(communityId) {
     activeRunTag = null;
     postReadonly.classList.add('hidden');
     postContent.classList.remove('hidden');
-    launchBtn.classList.remove('hidden');
+    postContent.disabled = false;
     newSimBtn.classList.add('hidden');
+    launchBtn.classList.remove('hidden');
+    document.getElementById('suggest-post-btn').classList.remove('hidden');
+    hideAnalysisTab();
   }
-  
-  loadRunHistory(communityId);
 }
 
 
@@ -1392,7 +1402,7 @@ async function initSimulateView(communityId) {
     const baseUrlInput = document.getElementById('base-url');
     const llmModelInput = document.getElementById('llm-model');
     const batchSizeInput = document.getElementById('batch-size');
-    const launchBtn = document.getElementById('launch-btn');
+
 
     const subredditInput = document.getElementById('new-subreddit-input');
     const generateBtn = document.getElementById('new-generate-btn');
@@ -1426,16 +1436,18 @@ async function initSimulateView(communityId) {
     const progressStep = document.getElementById('progress-step');
     const progressCalls = document.getElementById('progress-calls');
     const logContainer = document.getElementById('log-container');
-    const runList = document.getElementById('run-list');
+
     
     const resultsPanel = document.getElementById('results-panel');
-    const tabs = document.querySelectorAll('.tab');
-    const tabContents = document.querySelectorAll('.tab-content');
+    const tabs = resultsPanel.querySelectorAll('.tab');
+    const tabContents = resultsPanel.querySelectorAll('.tab-content');
     
     const noCommentsMsg = document.getElementById('no-comments-msg');
-    const statsBar = document.getElementById('stats-bar');
+
+    const generatingComments = document.getElementById('generating-comments');
     const threadContainer = document.getElementById('thread-container');
-    const analyzeBtn = document.getElementById('analyze-btn');
+    const analysisTab = document.getElementById('analysis-tab');
+    const analysisLoading = document.getElementById('analysis-loading');
     const scorecardEl = document.getElementById('scorecard');
     const rewriteBtn = document.getElementById('rewrite-btn');
     const rewriteResult = document.getElementById('rewrite-result');
@@ -1655,24 +1667,19 @@ async function initSimulateView(communityId) {
         step = 'Preparing...';
       } else if (data.phase === 'simulation') {
         pct = (data.round / data.total_rounds) * 100;
-        step = 'Round ' + data.round + '/' + data.total_rounds;
-        if (data.hour) step += ' \u00b7 ' + data.hour;
-        if (data.active_agents != null) step += ' \u00b7 ' + data.active_agents + ' agents';
+        const totalHrs = data.total_hours || data.total_rounds;
+        step = 'Hour ' + Math.ceil(data.round / data.total_rounds * totalHrs) + '/' + totalHrs;
       } else if (data.phase === 'interview') {
         pct = data.total > 0 ? (data.current / data.total) * 100 : 100;
-        step = data.current + '/' + data.total;
-        if (data.agent) step += ' \u00b7 ' + data.agent;
+        step = 'Interview ' + data.current + '/' + data.total;
+        if (data.agent) step += '<br>' + data.agent;
       } else if (data.phase === 'complete') {
         pct = 100;
         step = 'Done';
       }
 
       progressFill.style.width = pct + '%';
-      progressStep.textContent = step;
-
-      if (data.llm_calls != null) {
-        progressCalls.textContent = '\u00b7 ' + data.llm_calls + ' calls';
-      }
+      progressStep.innerHTML = step;
     }
 
     function connectWebSocket() {
@@ -1701,44 +1708,70 @@ async function initSimulateView(communityId) {
       };
 
       ws.onclose = () => {
-        // Simple auto-reconnect if not done running
-        if (launchBtn.disabled && !launchBtn.classList.contains('success')) {
+        if (simulationRunning) {
           setTimeout(connectWebSocket, 1000);
         }
       };
     }
 
     // Launch
+    const launchBtn = document.getElementById('launch-btn');
+
     newSimBtn.addEventListener('click', () => {
       navigateTo('/simulate/' + activeCommunityId);
     });
 
-    launchBtn.addEventListener('click', async () => {
-      const content = postContent.value.trim();
-      if (!content) {
-        alert("Please enter a post content");
-        return;
-      }
+    launchBtn.addEventListener('click', () => {
+      launchSimulation();
+    });
 
-      // UI updates
+    document.getElementById('suggest-post-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('suggest-post-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Generating...';
+
+      try {
+        const resp = await fetch('/api/suggest-post/' + activeCommunityId, {method: 'POST'});
+        if (!resp.ok) throw new Error('Failed to generate');
+        const data = await resp.json();
+        postContent.value = data.content;
+      } catch (err) {
+        alert('Failed to suggest post: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✨ Suggest Post';
+      }
+    });
+
+    let simulationRunning = false;
+
+    async function launchSimulation() {
+      const content = postContent.value.trim();
+      if (!content || simulationRunning) return;
+
+      simulationRunning = true;
+      postContent.classList.add('hidden');
+      postReadonly.textContent = content;
+      postReadonly.classList.remove('hidden');
       launchBtn.disabled = true;
       launchBtn.innerHTML = '<span class="spinner"></span> Running...';
       launchBtn.style.backgroundColor = 'var(--border)';
       launchBtn.style.color = 'var(--muted)';
       
       progressPanel.classList.remove('hidden');
-      progressTitle.innerHTML = '<span class="spinner" id="progress-spinner"></span>Running Simulation...';
+      progressTitle.innerHTML = '<span class="spinner" id="progress-spinner"></span>Generating responses...';
       progressTitle.style.color = '#fff';
       logContainer.innerHTML = '';
 
       progressStrip.classList.add('hidden');
       progressFill.style.width = '0%';
       progressCalls.textContent = '';
-      statsBar.classList.add('hidden');
-      threadContainer.innerHTML = '<div class="no-comments-yet">Simulation in progress...</div>';
+      threadContainer.innerHTML = '';
+      generatingComments.classList.remove('hidden');
+      hideAnalysisTab();
       
       connectWebSocket();
-      appendLog("Starting simulation...");
+
 
       try {
         const response = await fetch('/api/simulate', {
@@ -1763,31 +1796,69 @@ async function initSimulateView(communityId) {
         appendLog(`Error: ${err.message}`);
         resetLaunchButton();
       }
-    });
+    }
+
+    function resetLaunchButton() {
+      simulationRunning = false;
+      postReadonly.classList.add('hidden');
+      postContent.classList.remove('hidden');
+      postContent.disabled = false;
+      launchBtn.disabled = false;
+      launchBtn.textContent = '🚀 Launch Simulation';
+      launchBtn.style.backgroundColor = '';
+      launchBtn.style.color = '';
+      generatingComments.classList.add('hidden');
+    }
+
+    function showAnalysisTab(loading) {
+      analysisTab.classList.remove('hidden');
+      if (loading) {
+        analysisLoading.classList.remove('hidden');
+        scorecardEl.classList.add('hidden');
+        analysisTab.innerHTML = 'Analysis <span class="spinner" style="display:inline-block;width:12px;height:12px;margin-left:6px;vertical-align:middle;border-width:2px;"></span>';
+      }
+    }
+
+    function hideAnalysisTab() {
+      analysisTab.classList.add('hidden');
+      analysisTab.innerHTML = 'Analysis';
+      scorecardEl.classList.add('hidden');
+      analysisLoading.classList.add('hidden');
+    }
+
+    async function autoGenerateScorecard(tag) {
+      showAnalysisTab(true);
+      try {
+        const resp = await fetch('/api/scorecard/' + tag, {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({batch_size: parseInt(batchSizeInput.value) || 0}),
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          analysisLoading.classList.add('hidden');
+          scorecardEl.classList.remove('hidden');
+          renderScorecard(data);
+          const grade = data.grade || data.overall_grade || '?';
+          analysisTab.innerHTML = 'Analysis <span class="tab-badge">' + escapeHTML(String(grade)) + '</span>';
+        } else {
+          analysisLoading.innerHTML = '<div style="color:var(--error);font-size:13px;">Scorecard generation failed</div>';
+        }
+      } catch (err) {
+        analysisLoading.innerHTML = '<div style="color:var(--error);font-size:13px;">Error: ' + escapeHTML(err.message) + '</div>';
+      }
+    }
 
     async function simulationDone(tag) {
+      resetLaunchButton();
+
       progressTitle.innerHTML = '✓ Simulation complete';
       progressTitle.style.color = 'var(--success)';
-      
-      launchBtn.classList.add('success');
-      launchBtn.textContent = '✓ Complete';
-      launchBtn.style.backgroundColor = 'var(--success)';
-      launchBtn.style.color = '#fff';
-      
-      setTimeout(resetLaunchButton, 3000);
       
       activeRunTag = tag;
       history.replaceState(null, '', '/simulate/' + activeCommunityId + '?run=' + tag);
       await loadResults(tag);
-      loadRunHistory(activeCommunityId);
-    }
-
-    function resetLaunchButton() {
-      launchBtn.disabled = false;
-      launchBtn.textContent = '🚀 Launch Simulation';
-      launchBtn.classList.remove('success');
-      launchBtn.style.backgroundColor = '';
-      launchBtn.style.color = '';
+      autoGenerateScorecard(tag);
     }
 
     // Results
@@ -1832,11 +1903,7 @@ async function initSimulateView(communityId) {
     function renderThread(data) {
       if (!data || !data.comments) return;
       
-      const stats = data.stats || {};
-      document.getElementById('stat-score').textContent = stats.score || 0;
-      document.getElementById('stat-comments').textContent = stats.total_comments || data.comments.length || 0;
-      document.getElementById('stat-agents').textContent = stats.commenting_agents + '/' + stats.total_agents;
-      statsBar.classList.remove('hidden');
+
       
       threadContainer.innerHTML = '';
       
@@ -1876,26 +1943,7 @@ async function initSimulateView(communityId) {
       });
     }
 
-    analyzeBtn.addEventListener('click', async () => {
-      analyzeBtn.disabled = true;
-      analyzeBtn.innerHTML = '<span class="spinner"></span> Analyzing...';
 
-      try {
-        if (!activeRunTag) { alert('No run selected'); analyzeBtn.disabled = false; analyzeBtn.textContent = '📊 Generate Scorecard'; return; }
-        const data = await fetch('/api/scorecard/' + activeRunTag, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({batch_size: parseInt(batchSizeInput.value) || 0}),
-        }).then(r => r.json());
-        analyzeBtn.style.display = 'none';
-        scorecardEl.classList.remove('hidden');
-        renderScorecard(data);
-      } catch (err) {
-        analyzeBtn.disabled = false;
-        analyzeBtn.textContent = '📊 Generate Scorecard';
-        alert('Analysis failed: ' + err.message);
-      }
-    });
 
 
 
@@ -1994,24 +2042,7 @@ async function initSimulateView(communityId) {
             '<div class="clarity-box confused">Wrong: ' + (mc.wrong || mc.confused || 0) + '</div>' +
           '</div>';
 
-        if (mc.responses && mc.responses.length) {
-          html += '<div style="margin-top: 16px;">';
-          mc.responses.forEach(r => {
-            let color = 'var(--success)';
-            if (r.clarity === 'partial') color = '#f9a825';
-            if (r.clarity === 'wrong') color = 'var(--error)';
-            html +=
-              '<details class="sc-item">' +
-                '<summary>' +
-                  '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + color + ';margin-right:8px;"></span>' +
-                  escapeHTML(r.username) +
-                  ' <span class="freq" style="color:' + color + '">(' + r.clarity + ')</span>' +
-                '</summary>' +
-                '<div class="sc-quote">' + escapeHTML(r.response) + '</div>' +
-              '</details>';
-          });
-          html += '</div>';
-        }
+
 
         clarityEl.innerHTML = html;
       }
@@ -2109,7 +2140,7 @@ async function initSimulateView(communityId) {
       postContent.value = improvedPost.value;
       window.scrollTo({top: 0, behavior: 'smooth'});
       tabs[0].click();
-      launchBtn.click();
+      launchSimulation();
     });
 
     function escapeHTML(str) {
@@ -2125,39 +2156,7 @@ async function initSimulateView(communityId) {
 
     let activeRunTag = null;
 
-    async function loadRunHistory(communityId) {
-      try {
-        
-    let url = '/api/runs';
-    if (communityId) url += '?community_id=' + communityId;
-    const resp = await fetch(url);
 
-        const runs = await resp.json();
-        renderRunList(runs);
-      } catch(e) {
-        console.error('Failed to load run history:', e);
-      }
-    }
-
-    function renderRunList(runs) {
-      if (!runs.length) {
-        runList.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px;">No runs yet</div>';
-        return;
-      }
-      runList.innerHTML = runs.map(run => {
-        const isActive = run.tag === activeRunTag ? ' active' : '';
-        const date = new Date(run.created_at).toLocaleDateString();
-        const time = new Date(run.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-        const comments = run.comment_count || 0;
-        return '<div class="run-item' + isActive + '" data-tag="' + run.tag + '" onclick="loadRun(\'' + run.tag + '\')">' +
-          '<div class="run-item-info">' +
-          '  <div class="run-item-tag"><span class="run-item-status ' + run.status + '"></span>' + run.tag + '</div>' +
-          '  <div class="run-item-meta">' + run.agent_count + ' agents · ' + comments + ' comments · ' + date + ' ' + time + '</div>' +
-          '</div>' +
-          '<button class="run-item-delete" onclick="event.stopPropagation(); deleteRun(\'' + run.tag + '\')" title="Delete run">&times;</button>' +
-          '</div>';
-      }).join('');
-    }
 
     async function loadRun(tag) {
       activeRunTag = tag;
@@ -2172,26 +2171,10 @@ async function initSimulateView(communityId) {
         postLabel.textContent = 'Post (' + tag + ')';
         launchBtn.classList.add('hidden');
         newSimBtn.classList.remove('hidden');
-                if (typeof rewriteResult !== 'undefined') rewriteResult.classList.add('hidden');
+        document.getElementById('suggest-post-btn').classList.add('hidden');
+        if (typeof rewriteResult !== 'undefined') rewriteResult.classList.add('hidden');
         if (typeof rewriteBtn !== 'undefined') { rewriteBtn.style.display = ''; rewriteBtn.disabled = false; }
-        loadRunHistory(activeCommunityId);
-
-        const scResp = await fetch('/api/scorecard/' + tag, {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({batch_size: parseInt(batchSizeInput.value) || 0}),
-        });
-        if (scResp.ok) {
-          const scData = await scResp.json();
-          analyzeBtn.style.display = 'none';
-          scorecardEl.classList.remove('hidden');
-          renderScorecard(scData);
-        } else {
-          scorecardEl.classList.add('hidden');
-          analyzeBtn.style.display = '';
-          analyzeBtn.disabled = false;
-          analyzeBtn.textContent = '\uD83D\uDCCA Generate Scorecard';
-        }
+        autoGenerateScorecard(tag);
       } catch(e) {
         console.error('Failed to load run:', e);
       }
@@ -2204,9 +2187,7 @@ async function initSimulateView(communityId) {
         if (activeRunTag === tag) {
           activeRunTag = null;
           threadContainer.innerHTML = '<div class="no-comments-yet">Launch a simulation to see agent reactions</div>';
-          statsBar.classList.add('hidden');
         }
-        loadRunHistory(activeCommunityId);
       } catch(e) {
         console.error('Failed to delete run:', e);
       }

@@ -644,8 +644,11 @@ def list_runs(db_path: str, community_id: int | None = None) -> list[dict[str, A
                     SELECT COUNT(*)
                     FROM run_comment rc
                     WHERE rc.run_id = r.id
-                ) AS comment_count
+                ) AS comment_count,
+                sc.grade,
+                sc.score
             FROM run r
+            LEFT JOIN run_scorecard sc ON sc.run_id = r.id
         """
         params: list[Any] = []
         if community_id is not None:
@@ -827,6 +830,18 @@ def delete_profile(db_path: str, profile_id: int) -> None:
     conn = get_connection(db_path)
     try:
         _ = conn.execute("DELETE FROM community_profile WHERE id = ?", (profile_id,))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def delete_community(db_path: str, community_id: int) -> None:
+    conn = get_connection(db_path)
+    try:
+        _ = conn.execute(
+            "DELETE FROM community_profile WHERE community_id = ?", (community_id,)
+        )
+        _ = conn.execute("DELETE FROM community WHERE id = ?", (community_id,))
         conn.commit()
     finally:
         conn.close()

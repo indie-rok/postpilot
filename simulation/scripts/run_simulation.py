@@ -10,11 +10,16 @@ multipliers and per-archetype activity levels.
 import asyncio
 import argparse
 import json
+import logging
 import os
 import random
 import sys
 from datetime import datetime, timezone
 from typing import Any, cast
+
+# Silence OASIS/camel internal loggers — they dump full LLM conversations to stderr
+for _logger_name in ("social", "oasis", "camel"):
+    logging.getLogger(_logger_name).setLevel(logging.WARNING)
 
 from dotenv import load_dotenv
 
@@ -147,7 +152,7 @@ async def run_simulation(
     run_id=None,
     app_db_path=None,
 ):
-    print(f"=== Starting simulation: {tag} ===")
+    print("Preparing simulation...")
 
     profiles = load_profiles(profiles_path)
     username_to_archetype = {
@@ -162,11 +167,7 @@ async def run_simulation(
     llm_calls = 0
     emit_progress(phase="setup", total_rounds=total_rounds, total_agents=len(profiles))
 
-    print(f"Loaded {len(profiles)} agent profiles")
-    print(f"Post length: {len(post_content)} chars")
-    print(
-        f"Simulating {total_hours}h ({total_rounds} rounds, {minutes_per_round}min/round)"
-    )
+    print(f"{len(profiles)} agents loaded")
 
     available_actions = ActionType.get_default_reddit_actions()
 
@@ -185,7 +186,7 @@ async def run_simulation(
     )
 
     await env.reset()
-    print(f"Environment initialized. DB: {db_path}")
+    print("Environment ready")
 
     agents = list(env.agent_graph.get_agents())
     oasis_to_run_agent: dict[int, int] = {}
@@ -215,7 +216,9 @@ async def run_simulation(
     await env.step(seed_action)
     if app_db_path is not None and run_id is not None:
         update_run_status(app_db_path, run_id, "running")
-    print(f"Post seeded by {op_agent.user_info.user_name or op_agent.user_info.name}")
+    print(
+        f"Post published by {op_agent.user_info.user_name or op_agent.user_info.name}"
+    )
 
     start_hour = int(SIM_TIME_CONFIG.get("start_hour", 9))
 
@@ -224,20 +227,20 @@ async def run_simulation(
     for round_num in range(total_rounds):
         simulated_minutes = round_num * minutes_per_round
         simulated_hour = ((simulated_minutes // 60) + start_hour) % 24
-        print(
-            f"\n--- Round {round_num + 1}/{total_rounds} (simulated {simulated_hour:02d}:{simulated_minutes % 60:02d}) ---"
-        )
+        current_hour = (round_num * minutes_per_round) // 60 + 1
+        print(f"Hour {current_hour}/{total_hours}")
 
         active = get_active_agents_for_hour(
             agents, simulated_hour, username_to_archetype
         )
-        print(f"Active agents: {len(active)}/{len(agents)}")
+        print(f"{len(active)} agents responding")
 
         simulated_time = f"{simulated_hour:02d}:{simulated_minutes % 60:02d}"
         emit_progress(
             phase="simulation",
             round=round_num + 1,
             total_rounds=total_rounds,
+            total_hours=total_hours,
             hour=simulated_time,
             active_agents=len(active),
             llm_calls=llm_calls,
@@ -254,8 +257,7 @@ async def run_simulation(
 
         llm_calls += len(active)
 
-    print(f"\n=== Simulation complete: {tag} ===")
-    print(f"Results saved to: {db_path}")
+    print("Simulation complete")
 
     interviews, llm_calls = await run_interviews(
         agents,
@@ -268,7 +270,7 @@ async def run_simulation(
     )
 
     interview_count = len(interviews) if isinstance(interviews, list) else 0
-    print(f"Interviews complete: {interview_count} responses saved to DB")
+    print(f"{interview_count} interviews complete")
 
     emit_progress(phase="complete", llm_calls=llm_calls)
 
@@ -305,10 +307,10 @@ async def run_interviews(
     oasis_to_run_agent: dict[int, int] | None = None,
     username_to_archetype: dict[str, str] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
-    print("\n--- Running post-simulation interviews ---")
+    print("Interviewing agents...")
     skipped = [aid for aid, _ in agents if aid not in engaged_ids]
     if skipped:
-        print(f"  Skipping {len(skipped)} agents that were never activated")
+        print(f"Skipped {len(skipped)} inactive agents")
 
     interview_total = sum(1 for aid, _ in agents if aid in engaged_ids)
     if interview_total == 0:
@@ -341,7 +343,7 @@ async def run_interviews(
                     "success": response.get("success", False),
                 }
             )
-            print(f"  Interviewed {username}: {response.get('content', '')[:80]}...")
+            print(f"Interviewed {username} ✓")
             if app_db_path is not None and run_id is not None:
                 insert_interview(app_db_path, run_id, agent_id_for_db, response_text)
             interview_idx += 1
@@ -354,7 +356,7 @@ async def run_interviews(
                 llm_calls=llm_calls,
             )
         except Exception as exc:
-            print(f"  Interview failed for {username}: {exc}")
+            print(f"Interview failed: {username}")
             response_text = ""
             display_archetype = (
                 username_to_archetype.get(username, "Community Regular")

@@ -21,6 +21,7 @@ import scripts.generate_scorecard as scorecard_module
 from db import (
     create_run,
     create_run_agents,
+    delete_community,
     delete_profile,
     delete_run,
     get_all_profiles_for_community,
@@ -87,6 +88,24 @@ class SimulateRequest(BaseModel):
     llm_api_key: str = ""
     llm_base_url: str = ""
     llm_model: str = ""
+
+
+import re
+
+_ALLOWED_LOG_RE = re.compile(
+    r"^(Preparing simulation|"
+    r"\d+ agents loaded|"
+    r"Environment ready|"
+    r"Post published by |"
+    r"Hour \d+/\d+|"
+    r"\d+ agents responding|"
+    r"Simulation complete|"
+    r"Interviewing agents|"
+    r"Interviewed .+ ✓|"
+    r"Skipped \d+ inactive|"
+    r"\d+ interviews complete|"
+    r"Interview failed:)"
+)
 
 
 class SimulationCoordinator:
@@ -169,16 +188,6 @@ class SimulationCoordinator:
                 request.post_content.strip() + "\n", encoding="utf-8"
             )
 
-            await self.broadcast(
-                {
-                    "type": "log",
-                    "message": (
-                        f"Prepared run with {request.agent_count} agents for "
-                        f"{request.total_hours} simulated hour(s)."
-                    ),
-                }
-            )
-
             run_env = os.environ.copy()
             if request.llm_api_key:
                 run_env["LLM_API_KEY"] = request.llm_api_key
@@ -230,8 +239,8 @@ class SimulationCoordinator:
                             progress_data["type"] = "progress"
                             await self.broadcast(progress_data)
                         except json.JSONDecodeError:
-                            await self.broadcast({"type": "log", "message": msg})
-                    else:
+                            pass
+                    elif _ALLOWED_LOG_RE.match(msg):
                         await self.broadcast({"type": "log", "message": msg})
 
             return_code = await process.wait()
@@ -583,6 +592,89 @@ async def update_profile_endpoint(
 async def delete_profile_endpoint(profile_id: int) -> dict[str, str]:
     delete_profile(APP_DB, profile_id)
     return {"status": "deleted"}
+
+
+@app.delete("/api/communities/{community_id}")
+async def delete_community_endpoint(community_id: int) -> dict[str, str]:
+    delete_community(APP_DB, community_id)
+    return {"status": "deleted"}
+
+
+@app.get("/api/company-md")
+async def get_company_md() -> dict[str, Any]:
+    cwd = Path.cwd()
+    md_path = cwd / "company.md"
+    if not md_path.exists():
+        md_path = cwd.parent / "company.md"
+    if not md_path.exists():
+        raise HTTPException(status_code=404, detail="No company.md found")
+    content = md_path.read_text(encoding="utf-8")
+    name = ""
+    tagline = ""
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not name and stripped.startswith("# "):
+            name = stripped[2:].strip()
+        elif name and not tagline and stripped and not stripped.startswith("#"):
+            tagline = stripped
+            break
+    return {"content": content, "name": name, "tagline": tagline}
+
+
+@app.post("/api/suggest-post/{community_id}")
+async def suggest_post(community_id: int) -> dict[str, str]:
+    import scripts.generate_community as gen_module
+
+    product = get_product(APP_DB)
+    if not product:
+        raise HTTPException(status_code=400, detail="No product configured")
+
+    community = None
+    for c in list_communities(APP_DB):
+        if c["id"] == community_id:
+            community = c
+            break
+    if not community:
+        raise HTTPException(status_code=404, detail="Community not found")
+
+    company_md = ""
+    cwd = Path.cwd()
+    md_path = cwd / "company.md"
+    if not md_path.exists():
+        md_path = cwd.parent / "company.md"
+    if md_path.exists():
+        company_md = md_path.read_text(encoding="utf-8")
+
+    profiles = get_all_profiles_for_community(APP_DB, community_id)
+    archetypes = set(p["archetype"] for p in profiles)
+
+    prompt = f"""Write a compelling Reddit launch post for the subreddit {community["subreddit"]}.
+
+PRODUCT INFO:
+{company_md or product.get("description", product.get("name", "Unknown product"))}
+
+COMMUNITY PERSONAS ({len(profiles)} members):
+Archetypes: {", ".join(sorted(archetypes))}
+
+Write the post as if you are the founder/maker posting in {community["subreddit"]}. Make it:
+- Authentic and conversational (not salesy)
+- Include specific metrics, numbers, or learnings if available from the product info
+- Ask 2-3 genuine questions to spark discussion
+- Match the tone of {community["subreddit"]}
+- Address concerns that the community archetypes would likely raise
+- Keep it under 500 words
+
+Return ONLY the post text, no title prefix, no markdown formatting."""
+
+    saved = _apply_llm_config(coordinator._llm_config)
+    try:
+        content = await asyncio.to_thread(
+            gen_module._ask_llm, "You write authentic Reddit launch posts.", prompt
+        )
+    finally:
+        _restore_env(saved)
+
+    return {"content": content}
 
 
 class ProductRequest(BaseModel):
