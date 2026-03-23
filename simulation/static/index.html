@@ -414,9 +414,103 @@
     .run-item-status.running { background: var(--brand); }
     .run-item-status.pending { background: var(--muted); }
     .run-item-status.failed { background: #f44336; }
+
+    .community-row { display: flex; gap: 8px; align-items: center; }
+    .community-row input[type=text] { flex: 1; }
+    .community-row button { white-space: nowrap; padding: 8px 16px; font-size: 13px; width: auto; }
+
+    .persona-grid { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 400px; overflow-y: auto; padding: 4px 0; }
+    .persona-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .persona-card:hover { border-color: var(--brand); }
+    .persona-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .persona-card-name { font-weight: 600; font-size: 13px; }
+    .persona-card-archetype {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 500;
+    }
+    .persona-card-bio { font-size: 12px; color: var(--muted); line-height: 1.4; }
+    .persona-card-actions { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+    .persona-card-actions button {
+      font-size: 11px;
+      padding: 2px 8px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .persona-card-actions button:hover { border-color: var(--brand); color: var(--text); }
+    .persona-card-actions button.delete-btn:hover { border-color: var(--error); color: var(--error); }
+
+    .persona-summary {
+      font-size: 12px;
+      color: var(--muted);
+      padding: 8px 0 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .persona-summary .count { font-weight: 600; color: var(--text); }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal h3 { margin-bottom: 16px; font-size: 16px; }
+    .modal .form-group { margin-bottom: 12px; }
+    .modal .form-group label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 4px; color: var(--muted); }
+    .modal textarea { height: 120px; }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+    .modal-actions button { padding: 8px 16px; }
+    .modal-actions .cancel-btn { background: var(--border); color: var(--text); }
+
+    .no-reddit-notice {
+      font-size: 12px;
+      color: var(--muted);
+      background: rgba(255,152,0,0.1);
+      border: 1px solid rgba(255,152,0,0.3);
+      border-radius: 4px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+    }
+  
+    .view { display: none; }
+    .view.active { display: block; }
   </style>
 </head>
 <body>
+<div id="app">
+  <div id="view-setup" class="view"></div>
+  <div id="view-dashboard" class="view"></div>
+  <div id="view-add-community" class="view"></div>
+  <div id="view-simulate" class="view">
+
 
   <header>
     <h1>FlowPulse — Reddit Simulation Lab</h1>
@@ -458,7 +552,7 @@
         </div>
         <div class="form-group">
           <div class="small-label">Model</div>
-          <input type="text" id="llm-model" value="claude-sonnet-4-5-20250929">
+          <input type="text" id="llm-model" value="gpt-5-mini">
         </div>
         <div class="form-group">
           <div class="small-label" style="display:flex;justify-content:space-between;">
@@ -502,8 +596,29 @@
 
         <!-- Thread Tab -->
         <div id="tab-thread" class="tab-content active">
-          <button id="launch-btn" style="width: 100%; margin-bottom: 12px;">🚀 Launch Simulation</button>
-          <button id="new-sim-btn" class="hidden" style="width: 100%; margin-bottom: 12px; background: var(--border); color: var(--text);">+ New Simulation</button>
+          <div id="community-section" style="margin-bottom: 16px;">
+            <div class="form-group" style="margin-bottom: 8px;">
+              <div class="label-row">
+                <label>Subreddit</label>
+                <span id="community-status" style="font-size: 12px;"></span>
+              </div>
+              <div class="community-row">
+                <input type="text" id="subreddit-input" placeholder="e.g. r/startups" value="r/SaaS">
+                <button type="button" id="generate-btn">Generate</button>
+              </div>
+            </div>
+            <div id="no-reddit-notice" class="no-reddit-notice hidden">No Reddit API keys configured — using default r/SaaS community</div>
+            <div id="personas-section" class="hidden">
+              <div class="persona-summary">
+                <span><span class="count" id="persona-count">0</span> personas</span>
+                <button type="button" id="toggle-personas-btn" style="font-size:11px;padding:2px 8px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:4px;cursor:pointer;">Show</button>
+              </div>
+              <div id="personas-container" class="persona-grid hidden"></div>
+            </div>
+          </div>
+
+          <button type="button" id="launch-btn" style="width: 100%; margin-bottom: 12px;">🚀 Launch Simulation</button>
+          <button type="button" id="new-sim-btn" class="hidden" style="width: 100%; margin-bottom: 12px; background: var(--border); color: var(--text);">+ New Simulation</button>
           <div class="post-preview-label" id="post-label">Your Post</div>
           <div id="post-readonly" class="post-preview hidden" style="white-space: pre-wrap;"></div>
           <textarea id="post-content" class="post-preview" style="height: 300px; resize: vertical; border: 1px solid var(--border); cursor: text;">We built a tool that predicts employee burnout before it turns into a resignation. Here's what we learned from 14 beta companies.
@@ -624,7 +739,91 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     </div>
   </div>
 
-  <script>
+  <div class="modal-overlay hidden" id="edit-modal">
+    <div class="modal">
+      <h3>Edit Persona</h3>
+      <input type="hidden" id="edit-profile-id">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="edit-username">
+      </div>
+      <div class="form-group">
+        <label>Real Name</label>
+        <input type="text" id="edit-realname">
+      </div>
+      <div class="form-group">
+        <label>Archetype</label>
+        <input type="text" id="edit-archetype">
+      </div>
+      <div class="form-group">
+        <label>Bio</label>
+        <input type="text" id="edit-bio">
+      </div>
+      <div class="form-group">
+        <label>Persona (behavioral description)</label>
+        <textarea id="edit-persona"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="cancel-btn" id="edit-cancel">Cancel</button>
+        <button type="button" id="edit-save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  
+  </div>
+</div>
+<script>
+
+    const routes = {
+      '/setup': 'view-setup',
+      '/dashboard': 'view-dashboard',
+      '/communities/new': 'view-add-community',
+    };
+
+    function navigateTo(url) {
+      history.pushState(null, '', url);
+      routeToView();
+    }
+
+    function routeToView() {
+      const path = window.location.pathname;
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+
+      if (path.startsWith('/simulate/')) {
+        document.getElementById('view-simulate').classList.add('active');
+        const communityId = parseInt(path.split('/')[2]);
+        if (communityId) initSimulateView(communityId);
+        return;
+      }
+
+      const viewId = routes[path];
+      if (viewId) {
+        document.getElementById(viewId).classList.add('active');
+        if (viewId === 'view-dashboard') initDashboard();
+        if (viewId === 'view-setup') initSetup();
+        if (viewId === 'view-add-community') initAddCommunity();
+        return;
+      }
+
+      checkProductAndRoute();
+    }
+
+    async function checkProductAndRoute() {
+      try {
+        const resp = await fetch('/api/product');
+        if (resp.ok) { navigateTo('/dashboard'); }
+        else { navigateTo('/setup'); }
+      } catch (e) { navigateTo('/setup'); }
+    }
+
+    window.addEventListener('popstate', routeToView);
+
+    function initSetup() {}
+    function initDashboard() {}
+    function initAddCommunity() {}
+    function initSimulateView(communityId) {}
+
     // Elements
     const agentsSlider = document.getElementById('agents-slider');
     const hoursSlider = document.getElementById('hours-slider');
@@ -640,6 +839,28 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     const llmModelInput = document.getElementById('llm-model');
     const batchSizeInput = document.getElementById('batch-size');
     const launchBtn = document.getElementById('launch-btn');
+
+    const subredditInput = document.getElementById('subreddit-input');
+    const generateBtn = document.getElementById('generate-btn');
+    const communityStatus = document.getElementById('community-status');
+    const noRedditNotice = document.getElementById('no-reddit-notice');
+    const personasSection = document.getElementById('personas-section');
+    const personasContainer = document.getElementById('personas-container');
+    const personaCountEl = document.getElementById('persona-count');
+    const togglePersonasBtn = document.getElementById('toggle-personas-btn');
+    const editModal = document.getElementById('edit-modal');
+    const editProfileId = document.getElementById('edit-profile-id');
+    const editUsername = document.getElementById('edit-username');
+    const editRealname = document.getElementById('edit-realname');
+    const editArchetype = document.getElementById('edit-archetype');
+    const editBio = document.getElementById('edit-bio');
+    const editPersona = document.getElementById('edit-persona');
+    const editCancel = document.getElementById('edit-cancel');
+    const editSave = document.getElementById('edit-save');
+
+    let activeCommunityId = 1;
+    let redditKeysConfigured = false;
+    let currentPersonas = [];
     
     const progressPanel = document.getElementById('progress-panel');
     const progressTitle = document.getElementById('progress-title');
@@ -696,8 +917,179 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     hoursSlider.addEventListener('input', updateCalc);
     updateCalc();
 
+    async function checkRedditStatus() {
+      try {
+        const resp = await fetch('/api/reddit-status');
+        const data = await resp.json();
+        redditKeysConfigured = data.configured;
+        if (!redditKeysConfigured) {
+          noRedditNotice.classList.remove('hidden');
+          generateBtn.disabled = true;
+          generateBtn.style.opacity = '0.5';
+          communityStatus.textContent = 'default community';
+          communityStatus.style.color = 'var(--muted)';
+          subredditInput.disabled = true;
+          loadDefaultCommunity();
+        }
+      } catch (e) {
+        console.error('Failed to check reddit status:', e);
+      }
+    }
 
+    async function loadDefaultCommunity() {
+      try {
+        const resp = await fetch('/api/communities/1/profiles');
+        const profiles = await resp.json();
+        currentPersonas = profiles;
+        activeCommunityId = 1;
+        renderPersonas(profiles);
+      } catch (e) {
+        console.error('Failed to load default community:', e);
+      }
+    }
 
+    generateBtn.addEventListener('click', async () => {
+      const subreddit = subredditInput.value.trim();
+      if (!subreddit) {
+        alert('Please enter a subreddit name');
+        return;
+      }
+
+      generateBtn.disabled = true;
+      generateBtn.innerHTML = '<span class="spinner"></span>';
+      communityStatus.textContent = 'Scraping & generating...';
+      communityStatus.style.color = 'var(--brand)';
+
+      try {
+        const resp = await fetch('/api/communities/generate', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            subreddit: subreddit,
+            persona_count: parseInt(agentsSlider.value) || 18,
+          }),
+        });
+
+        if (!resp.ok) {
+          const body = await resp.json().catch(() => ({}));
+          throw new Error(body.detail || 'Generation failed');
+        }
+
+        const data = await resp.json();
+        activeCommunityId = data.community_id;
+        currentPersonas = data.profiles;
+        communityStatus.textContent = data.profile_count + ' personas ready';
+        communityStatus.style.color = 'var(--success)';
+        renderPersonas(data.profiles);
+      } catch (err) {
+        communityStatus.textContent = 'Failed: ' + err.message;
+        communityStatus.style.color = 'var(--error)';
+      } finally {
+        generateBtn.disabled = false;
+        generateBtn.textContent = 'Generate';
+      }
+    });
+
+    function renderPersonas(profiles) {
+      personasSection.classList.remove('hidden');
+      personaCountEl.textContent = profiles.length;
+
+      const archetypes = {};
+      profiles.forEach(p => {
+        archetypes[p.archetype] = (archetypes[p.archetype] || 0) + 1;
+      });
+
+      personasContainer.innerHTML = profiles.map(p => {
+        const flairColor = getFlairColor(p.archetype);
+        const bioText = p.bio || '';
+        const personaPreview = (p.persona || '').substring(0, 100) + (p.persona && p.persona.length > 100 ? '...' : '');
+        return '<div class="persona-card" data-id="' + p.id + '">' +
+          '<div class="persona-card-header">' +
+            '<span class="persona-card-name">' + escapeHTML(p.realname || p.username) + '</span>' +
+            '<span class="persona-card-archetype" style="background-color:' + flairColor + '">' + escapeHTML(p.archetype) + '</span>' +
+          '</div>' +
+          '<div class="persona-card-bio">' + escapeHTML(bioText) + '</div>' +
+          (personaPreview ? '<div class="persona-card-bio" style="margin-top:4px;font-style:italic;">' + escapeHTML(personaPreview) + '</div>' : '') +
+          '<div class="persona-card-actions">' +
+            '<button type="button" onclick="event.stopPropagation(); openEditModal(' + p.id + ')">Edit</button>' +
+            '<button type="button" class="delete-btn" onclick="event.stopPropagation(); deletePersona(' + p.id + ')">Delete</button>' +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    togglePersonasBtn.addEventListener('click', () => {
+      const isHidden = personasContainer.classList.contains('hidden');
+      personasContainer.classList.toggle('hidden');
+      togglePersonasBtn.textContent = isHidden ? 'Hide' : 'Show';
+    });
+
+    function openEditModal(profileId) {
+      const profile = currentPersonas.find(p => p.id === profileId);
+      if (!profile) return;
+      editProfileId.value = profileId;
+      editUsername.value = profile.username || '';
+      editRealname.value = profile.realname || '';
+      editArchetype.value = profile.archetype || '';
+      editBio.value = profile.bio || '';
+      editPersona.value = profile.persona || '';
+      editModal.classList.remove('hidden');
+    }
+
+    editCancel.addEventListener('click', () => {
+      editModal.classList.add('hidden');
+    });
+
+    editModal.addEventListener('click', (e) => {
+      if (e.target === editModal) editModal.classList.add('hidden');
+    });
+
+    editSave.addEventListener('click', async () => {
+      const profileId = parseInt(editProfileId.value);
+      const fields = {
+        username: editUsername.value.trim(),
+        realname: editRealname.value.trim(),
+        archetype: editArchetype.value.trim(),
+        bio: editBio.value.trim(),
+        persona: editPersona.value.trim(),
+      };
+
+      editSave.disabled = true;
+      editSave.textContent = 'Saving...';
+      try {
+        const resp = await fetch('/api/communities/profiles/' + profileId, {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify(fields),
+        });
+        if (!resp.ok) throw new Error('Update failed');
+
+        const idx = currentPersonas.findIndex(p => p.id === profileId);
+        if (idx !== -1) {
+          Object.assign(currentPersonas[idx], fields);
+        }
+        renderPersonas(currentPersonas);
+        editModal.classList.add('hidden');
+      } catch (err) {
+        alert('Failed to save: ' + err.message);
+      } finally {
+        editSave.disabled = false;
+        editSave.textContent = 'Save';
+      }
+    });
+
+    async function deletePersona(profileId) {
+      if (!confirm('Delete this persona?')) return;
+      try {
+        await fetch('/api/communities/profiles/' + profileId, {method: 'DELETE'});
+        currentPersonas = currentPersonas.filter(p => p.id !== profileId);
+        renderPersonas(currentPersonas);
+      } catch (e) {
+        alert('Failed to delete persona');
+      }
+    }
+
+    
     // Tabs logic
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
@@ -813,6 +1205,7 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
       threadContainer.innerHTML = '<div class="no-comments-yet">Launch a simulation to see agent reactions</div>';
       scorecardEl.classList.add('hidden');
       analyzeBtn.style.display = '';
+      document.getElementById('community-section').classList.remove('hidden');
       loadRunHistory();
     });
 
@@ -851,6 +1244,7 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
             agent_count: parseInt(agentsSlider.value),
             total_hours: parseInt(hoursSlider.value),
             post_content: content,
+            community_id: activeCommunityId,
             llm_api_key: apiKeyInput.value.trim(),
             llm_base_url: baseUrlInput.value.trim(),
             llm_model: llmModelInput.value.trim(),
@@ -1269,6 +1663,7 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
         postLabel.textContent = 'Post (' + tag + ')';
         launchBtn.classList.add('hidden');
         newSimBtn.classList.remove('hidden');
+        document.getElementById('community-section').classList.add('hidden');
         if (typeof rewriteResult !== 'undefined') rewriteResult.classList.add('hidden');
         if (typeof rewriteBtn !== 'undefined') { rewriteBtn.style.display = ''; rewriteBtn.disabled = false; }
         loadRunHistory();
@@ -1309,7 +1704,7 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
       }
     }
 
-    loadRunHistory();
+    routeToView();
   </script>
 </body>
 </html>
