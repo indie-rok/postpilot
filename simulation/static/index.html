@@ -503,7 +503,9 @@
         <!-- Thread Tab -->
         <div id="tab-thread" class="tab-content active">
           <button id="launch-btn" style="width: 100%; margin-bottom: 12px;">🚀 Launch Simulation</button>
-          <div class="post-preview-label">Your Post</div>
+          <button id="new-sim-btn" class="hidden" style="width: 100%; margin-bottom: 12px; background: var(--border); color: var(--text);">+ New Simulation</button>
+          <div class="post-preview-label" id="post-label">Your Post</div>
+          <div id="post-readonly" class="post-preview hidden" style="white-space: pre-wrap;"></div>
           <textarea id="post-content" class="post-preview" style="height: 300px; resize: vertical; border: 1px solid var(--border); cursor: text;">We built a tool that predicts employee burnout before it turns into a resignation. Here's what we learned from 14 beta companies.
 
 Hey r/SaaS — Maya here, co-founder of FlowPulse.
@@ -630,6 +632,9 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     const hoursVal = document.getElementById('hours-val');
     const calcInfo = document.getElementById('calc-info');
     const postContent = document.getElementById('post-content');
+    const postReadonly = document.getElementById('post-readonly');
+    const postLabel = document.getElementById('post-label');
+    const newSimBtn = document.getElementById('new-sim-btn');
     const apiKeyInput = document.getElementById('api-key');
     const baseUrlInput = document.getElementById('base-url');
     const llmModelInput = document.getElementById('llm-model');
@@ -797,6 +802,20 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     }
 
     // Launch
+    newSimBtn.addEventListener('click', () => {
+      activeRunTag = null;
+      postReadonly.classList.add('hidden');
+      postContent.classList.remove('hidden');
+      postLabel.textContent = 'Your Post';
+      launchBtn.classList.remove('hidden');
+      newSimBtn.classList.add('hidden');
+      statsBar.classList.add('hidden');
+      threadContainer.innerHTML = '<div class="no-comments-yet">Launch a simulation to see agent reactions</div>';
+      scorecardEl.classList.add('hidden');
+      analyzeBtn.style.display = '';
+      loadRunHistory();
+    });
+
     launchBtn.addEventListener('click', async () => {
       const content = postContent.value.trim();
       if (!content) {
@@ -1244,6 +1263,12 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
         if (!resp.ok) throw new Error('Failed to load results');
         const data = await resp.json();
         renderThread(data);
+        postContent.classList.add('hidden');
+        postReadonly.textContent = data.post.content || '';
+        postReadonly.classList.remove('hidden');
+        postLabel.textContent = 'Post (' + tag + ')';
+        launchBtn.classList.add('hidden');
+        newSimBtn.classList.remove('hidden');
         scorecardEl.classList.add('hidden');
         analyzeBtn.style.display = '';
         analyzeBtn.disabled = false;
