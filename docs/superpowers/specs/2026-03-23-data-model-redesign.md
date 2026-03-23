@@ -192,9 +192,51 @@ reddit-sim.db              ← single app database
 
 No more `profiles/`, `posts/`, `results/` directories with loose files.
 
-## Scope: Community Selection
+## Community Selection Flow
 
-This spec establishes the schema for multi-community support but v1 only uses the seeded "r/SaaS" default community. `POST /api/simulate` does not accept a `community_id` parameter yet — it always uses the default. Community management UI and Reddit API integration for generating new communities are deferred to the subreddit persona generation spec.
+### Three scenarios
+
+**1. New community** — user enters a subreddit that doesn't exist in DB:
+- Scrape Reddit API (top posts, comments, active user patterns)
+- LLM generates personas from scraped data
+- Save `community` + `community_profile` rows
+- Show generated personas for review — user can edit individual profiles (username, archetype, persona text, demographics) or remove agents
+- User approves → community is ready for simulation
+
+**2. Existing community, no changes needed** — user selects from dropdown:
+- Show profile count + "last generated X days ago"
+- User can launch simulation immediately
+
+**3. Existing community, user wants to refresh** — user clicks refresh:
+- Re-scrape Reddit API
+- LLM regenerates personas
+- Show updated personas for review (same edit flow as scenario 1)
+- On approve, old `community_profile` rows are replaced with new ones
+- Existing `run_agent` rows from past runs are unaffected (they're immutable snapshots)
+
+### Persona editing
+
+`community_profile` rows are editable templates. Users can:
+- Edit any field: username, archetype, persona text, demographics
+- Remove profiles from the community
+- Changes are saved directly to `community_profile` table
+
+When a simulation launches, selected profiles are **copied** into `run_agent` rows. That snapshot is immutable — editing community profiles afterward does not affect past runs.
+
+### API endpoints for community management
+
+| Endpoint | Method | Purpose |
+|---|---|---|
+| `GET /api/communities` | GET | List all communities with profile counts and last-generated dates |
+| `POST /api/communities` | POST | Create new community: accepts subreddit name, scrapes Reddit API, generates personas via LLM, returns community + profiles |
+| `GET /api/communities/{id}/profiles` | GET | List all profiles for a community |
+| `PUT /api/communities/{id}/profiles/{profile_id}` | PUT | Edit a single profile |
+| `DELETE /api/communities/{id}/profiles/{profile_id}` | DELETE | Remove a profile from a community |
+| `POST /api/communities/{id}/refresh` | POST | Re-scrape + regenerate all profiles for a community |
+
+### Simulate endpoint change
+
+`POST /api/simulate` gains a `community_id` parameter. If omitted, uses the default seeded "r/SaaS" community.
 
 ## What Does NOT Change
 
