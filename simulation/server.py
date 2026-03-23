@@ -21,13 +21,20 @@ import scripts.generate_scorecard as scorecard_module
 from db import (
     create_run,
     create_run_agents,
+    delete_profile,
     delete_run,
+    get_all_profiles_for_community,
+    get_community_by_subreddit,
     get_connection,
+    get_product,
     get_results_for_run,
     init_db,
+    list_communities,
     list_runs,
+    save_product,
     seed_default_community,
     select_profiles_for_community,
+    update_profile,
 )
 
 
@@ -76,6 +83,7 @@ class SimulateRequest(BaseModel):
     agent_count: int = Field(ge=2, le=18)
     total_hours: int = Field(ge=1, le=72)
     post_content: str = Field(min_length=1)
+    community_id: int = 1
     llm_api_key: str = ""
     llm_base_url: str = ""
     llm_model: str = ""
@@ -136,12 +144,12 @@ class SimulationCoordinator:
     async def _run(self, request: SimulateRequest, tag: str) -> None:
         try:
             selected_profiles = select_profiles_for_community(
-                APP_DB, 1, request.agent_count
+                APP_DB, request.community_id, request.agent_count
             )
             run_id = create_run(
                 APP_DB,
                 tag,
-                1,
+                request.community_id,
                 request.post_content,
                 request.agent_count,
                 request.total_hours,
@@ -499,9 +507,114 @@ async def rewrite_post_endpoint(
     return {"improved_post": improved_post}
 
 
+@app.get("/api/reddit-status")
+async def reddit_status() -> dict[str, Any]:
+    has_keys = bool(os.getenv("REDDIT_CLIENT_ID") and os.getenv("REDDIT_CLIENT_SECRET"))
+    return {"configured": has_keys}
+
+
+class GenerateCommunityRequest(BaseModel):
+    subreddit: str = Field(min_length=1)
+    persona_count: int = Field(ge=3, le=30, default=18)
+
+
+@app.post("/api/communities/generate")
+async def generate_community_endpoint(
+    request: GenerateCommunityRequest,
+) -> JSONResponse:
+    import scripts.generate_community as gen_module
+
+    saved = _apply_llm_config(coordinator._llm_config)
+    try:
+        community_id, personas = await asyncio.to_thread(
+            gen_module.generate_community,
+            request.subreddit,
+            request.persona_count,
+            APP_DB,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    finally:
+        _restore_env(saved)
+
+    profiles = get_all_profiles_for_community(APP_DB, community_id)
+    return JSONResponse(
+        content={
+            "community_id": community_id,
+            "subreddit": request.subreddit,
+            "profile_count": len(profiles),
+            "profiles": profiles,
+        }
+    )
+
+
+@app.get("/api/communities")
+async def get_communities() -> JSONResponse:
+    communities = list_communities(APP_DB)
+    return JSONResponse(content=communities)
+
+
+@app.get("/api/communities/{community_id}/profiles")
+async def get_community_profiles(community_id: int) -> JSONResponse:
+    profiles = get_all_profiles_for_community(APP_DB, community_id)
+    return JSONResponse(content=profiles)
+
+
+class UpdateProfileRequest(BaseModel):
+    username: str | None = None
+    realname: str | None = None
+    archetype: str | None = None
+    bio: str | None = None
+    persona: str | None = None
+
+
+@app.put("/api/communities/profiles/{profile_id}")
+async def update_profile_endpoint(
+    profile_id: int, request: UpdateProfileRequest
+) -> dict[str, str]:
+    fields = {k: v for k, v in request.model_dump().items() if v is not None}
+    if not fields:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    update_profile(APP_DB, profile_id, fields)
+    return {"status": "updated"}
+
+
+@app.delete("/api/communities/profiles/{profile_id}")
+async def delete_profile_endpoint(profile_id: int) -> dict[str, str]:
+    delete_profile(APP_DB, profile_id)
+    return {"status": "deleted"}
+
+
+class ProductRequest(BaseModel):
+    name: str = Field(min_length=1)
+    tagline: str | None = None
+    description: str | None = None
+    features: str | None = None
+    pricing: str | None = None
+    target_audience: str | None = None
+    llm_model: str | None = None
+    llm_base_url: str | None = None
+    llm_api_key: str | None = None
+    batch_size: int = 0
+
+
+@app.get("/api/product")
+async def get_product_endpoint() -> JSONResponse:
+    product = get_product(APP_DB)
+    if product is None:
+        raise HTTPException(status_code=404, detail="No product configured")
+    return JSONResponse(content=product)
+
+
+@app.post("/api/product")
+async def save_product_endpoint(request: ProductRequest) -> dict[str, str]:
+    save_product(APP_DB, request.model_dump())
+    return {"status": "saved"}
+
+
 @app.get("/api/runs")
-async def get_runs() -> JSONResponse:
-    runs = list_runs(APP_DB)
+async def get_runs(community_id: int | None = None) -> JSONResponse:
+    runs = list_runs(APP_DB, community_id=community_id)
     return JSONResponse(content=runs)
 
 
@@ -535,7 +648,11 @@ async def get_thread(tag: str) -> HTMLResponse:
 
 
 app.mount(
-    "/",
-    StaticFiles(directory=str(STATIC_DIR), html=True, check_dir=False),
-    name="static",
+    "/static", StaticFiles(directory=str(STATIC_DIR), check_dir=False), name="static"
 )
+
+
+@app.get("/{path:path}")
+async def spa_catch_all(path: str) -> HTMLResponse:
+    index_path = STATIC_DIR / "index.html"
+    return HTMLResponse(content=index_path.read_text(encoding="utf-8"))
