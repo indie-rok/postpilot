@@ -128,13 +128,13 @@
     .log-container {
       background-color: var(--log-bg);
       border-radius: 4px;
-      padding: 12px;
-      height: 300px;
+      padding: 8px;
+      height: 200px;
       overflow-y: auto;
       font-family: monospace;
-      font-size: 13px;
+      font-size: 11px;
       color: var(--success);
-      margin-top: 16px;
+      margin-top: 8px;
     }
     .log-line { margin-bottom: 4px; animation: fadeIn 0.3s; }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -341,12 +341,13 @@
     .progress-strip {
       display: flex;
       align-items: center;
-      gap: 12px;
-      font-size: 13px;
-      padding: 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+      font-size: 12px;
+      padding: 10px;
       background: var(--bg);
       border-radius: 4px;
-      margin-bottom: 12px;
+      margin-bottom: 8px;
     }
     .progress-pill {
       padding: 2px 8px;
@@ -427,14 +428,10 @@
       </details>
 
       <button id="launch-btn">🚀 Launch Simulation</button>
-    </div>
 
-    <!-- Right Side (Progress / Results) -->
-    <div class="content-area">
-      
-      <!-- Progress Panel -->
-      <div class="card hidden" id="progress-panel">
-        <h2 id="progress-title"><span class="spinner" id="progress-spinner"></span>Running Simulation...</h2>
+      <!-- Progress Panel (in sidebar) -->
+      <div class="hidden" id="progress-panel" style="margin-top: 16px;">
+        <h2 id="progress-title" style="font-size: 14px; margin-bottom: 8px;"><span class="spinner" id="progress-spinner"></span>Running Simulation...</h2>
 
         <div class="progress-strip hidden" id="progress-strip">
           <span class="progress-pill" id="progress-pill">SETUP</span>
@@ -446,6 +443,10 @@
         </div>
         <div class="log-container" id="log-container"></div>
       </div>
+    </div>
+
+    <!-- Right Side (Results) -->
+    <div class="content-area">
 
       <!-- Results Panel -->
       <div class="card" id="results-panel">
