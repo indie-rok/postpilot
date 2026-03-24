@@ -1,0 +1,14 @@
+{
+  "name": "post-pilot",
+  "version": "0.1.0",
+  "description": "Test your Reddit launch post against AI community personas before posting",
+  "bin": {
+    "post-pilot": "./bin/post-pilot.js"
+  },
+  "files": [
+    "bin/",
+    "simulation/"
+  ],
+  "keywords": ["reddit", "simulation", "launch", "saas", "ai"],
+  "license": "MIT"
+}
