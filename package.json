@@ -2,6 +2,12 @@
   "name": "post-pilot",
   "version": "0.1.0",
   "description": "Test your Reddit launch post against AI community personas before posting",
+  "author": "Emmanuel Orozco",
+  "homepage": "https://github.com/indie-rok/postpilot",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/indie-rok/postpilot"
+  },
   "bin": {
     "post-pilot": "./bin/post-pilot.js"
   },
