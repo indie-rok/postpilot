@@ -18,7 +18,22 @@ LLM-generated text — both simulated Reddit comments from OASIS agents and user
 
 Two constants:
 
-- `WRITING_RULES` — The complete humanizer ruleset, sourced from [blader/humanizer SKILL.md](https://github.com/blader/humanizer/blob/main/SKILL.md) (based on Wikipedia's "Signs of AI writing" guide). Contains all 25 categories, each with its "words to watch" list and the rule to follow. Adapted from an editing guide into prompt instruction format ("Do not use...", "Avoid...", "Instead of X, write Y").
+- `WRITING_RULES` — The complete humanizer ruleset, sourced from [blader/humanizer SKILL.md](https://github.com/blader/humanizer/blob/main/SKILL.md) (based on Wikipedia's "Signs of AI writing" guide). Contains all 25 categories. Adapted from an editing guide into prompt instruction format ("Do not use...", "Avoid...", "Instead of X, write Y").
+
+  **Format for each category:** rule name, words-to-watch list, and one before/after example. This gives the LLM both the rule and a concrete demonstration of what to do. Approximately 3000-4000 tokens total.
+
+  Example of how a single category looks in `WRITING_RULES`:
+
+  ```
+  ## 7. Do not use overused AI vocabulary
+  NEVER use these words: Additionally, crucial, delve, enhance, fostering, garner,
+  interplay, intricate, landscape (abstract), pivotal, showcase, tapestry (abstract),
+  testament, underscore, vibrant.
+  BAD: "Additionally, the intricate interplay between these forces showcases a vibrant tapestry."
+  GOOD: "These forces interact in ways that aren't always predictable."
+  ```
+
+  The "Personality and Soul" meta-rules are included at the top as general writing directives (vary rhythm, have opinions, acknowledge complexity, use first person when appropriate).
 
   The 25 categories:
 
