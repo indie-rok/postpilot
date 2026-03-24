@@ -7,7 +7,23 @@
   },
   "files": [
     "bin/",
-    "simulation/"
+    "simulation/",
+    "!simulation/.venv",
+    "!simulation/**/__pycache__",
+    "!simulation/tests",
+    "!simulation/.pytest_cache",
+    "!simulation/.ruff_cache",
+    "!simulation/.env",
+    "!simulation/.env.example",
+    "!simulation/.post-pilot",
+    "!simulation/results",
+    "!simulation/log",
+    "!simulation/profiles/test_*",
+    "!simulation/profiles/run_*",
+    "!simulation/posts/run_*",
+    "!simulation/static/mock_*",
+    "!simulation/static/mockup-*",
+    "!simulation/README.md"
   ],
   "keywords": ["reddit", "simulation", "launch", "saas", "ai"],
   "license": "MIT"

@@ -30,6 +30,7 @@ from db import (
     get_connection,
     get_env_path,
     get_product,
+    get_project_dir,
     get_results_for_run,
     init_db,
     list_communities,
@@ -62,14 +63,16 @@ class Profile(TypedDict, total=False):
 
 BASE_DIR = Path(__file__).resolve().parent
 PROFILES_DIR = BASE_DIR / "profiles"
-POSTS_DIR = BASE_DIR / "posts"
-RESULTS_DIR = BASE_DIR / "results"
 STATIC_DIR = BASE_DIR / "static"
 
 ALL_PROFILES_PATH = PROFILES_DIR / "r_saas_community.json"
-RUN_PROFILES_PATH = PROFILES_DIR / "run_profiles.json"
-RUN_POST_PATH = POSTS_DIR / "run_post.txt"
 APP_DB = get_default_db_path()
+
+# Temp files written during simulations go in the user's .post-pilot/ dir
+# (the bundled package dir may be read-only in npm cache)
+_PROJECT_DIR = get_project_dir()
+RUN_PROFILES_PATH = _PROJECT_DIR / "run_profiles.json"
+RUN_POST_PATH = _PROJECT_DIR / "run_post.txt"
 
 THREAD_TEMPLATE: str = cast(str, generate_html_module.TEMPLATE)
 
@@ -203,11 +206,11 @@ class SimulationCoordinator:
                 "-c",
                 RUNNER_WRAPPER,
                 "--post",
-                str(RUN_POST_PATH.relative_to(BASE_DIR)),
+                str(RUN_POST_PATH),
                 "--tag",
                 tag,
                 "--profiles",
-                str(RUN_PROFILES_PATH.relative_to(BASE_DIR)),
+                str(RUN_PROFILES_PATH),
                 "--total-hours",
                 str(request.total_hours),
                 "--run-id",
@@ -620,38 +623,32 @@ async def suggest_post(community_id: int) -> dict[str, str]:
         raise HTTPException(status_code=404, detail="Community not found")
 
     company_md = ""
-    cwd = Path.cwd()
-    md_path = cwd / "company.md"
+    project = (
+        Path(os.environ.get("POST_PILOT_PROJECT_DIR", ""))
+        if os.environ.get("POST_PILOT_PROJECT_DIR")
+        else Path.cwd()
+    )
+    md_path = project / "company.md"
     if not md_path.exists():
-        md_path = cwd.parent / "company.md"
+        md_path = project.parent / "company.md"
     if md_path.exists():
         company_md = md_path.read_text(encoding="utf-8")
 
     profiles = get_all_profiles_for_community(APP_DB, community_id)
     archetypes = set(p["archetype"] for p in profiles)
 
-    prompt = f"""Write a compelling Reddit launch post for the subreddit {community["subreddit"]}.
-
-PRODUCT INFO:
-{company_md or product.get("raw_context") or product.get("problem") or product.get("name", "Unknown product")}
-
-COMMUNITY PERSONAS ({len(profiles)} members):
-Archetypes: {", ".join(sorted(archetypes))}
-
-Write the post as if you are the founder/maker posting in {community["subreddit"]}. Make it:
-- Authentic and conversational (not salesy)
-- Include specific metrics, numbers, or learnings if available from the product info
-- Ask 2-3 genuine questions to spark discussion
-- Match the tone of {community["subreddit"]}
-- Address concerns that the community archetypes would likely raise
-- Keep it under 500 words
-
-Return ONLY the post text, no title prefix, no markdown formatting."""
+    from prompts.suggest import SYSTEM as SUGGEST_SYSTEM, SUGGEST_POST
+    prompt = SUGGEST_POST.format(
+        subreddit=community["subreddit"],
+        product_info=company_md or product.get("raw_context") or product.get("problem") or product.get("name", "Unknown product"),
+        persona_count=len(profiles),
+        archetypes=", ".join(sorted(archetypes)),
+    )
 
     saved = _apply_llm_config(coordinator._llm_config)
     try:
         content = await asyncio.to_thread(
-            gen_module._ask_llm, "You write authentic Reddit launch posts.", prompt
+            gen_module._ask_llm, SUGGEST_SYSTEM, prompt
         )
     finally:
         _restore_env(saved)

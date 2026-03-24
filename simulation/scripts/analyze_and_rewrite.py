@@ -59,70 +59,19 @@ def get_original_post(db_path: str) -> str:
 def analyze(comments: list[dict]) -> str:
     comments_text = "\n\n".join(f"[{c['author']}]: {c['content']}" for c in comments)
 
-    prompt = f"""You are analyzing Reddit comments on a SaaS launch post (r/SaaS).
-These are from a simulation with 18 AI agents playing different archetypes
-(founders, skeptical PMs, HR buyers, indie hackers, VCs, community regulars, lurkers).
-
-COMMENTS:
-{comments_text}
-
-Analyze and produce a structured report:
-
-## What Resonated
-- Which claims/numbers/framings got positive reactions? Quote specific phrases.
-
-## What Got Pushback
-- Which claims got challenged? What were the specific objections?
-
-## Top Recurring Questions
-- What did multiple agents ask about? Rank by frequency.
-
-## Positioning Gaps
-- Where did agents say "how is this different from X?" What was missing?
-
-## Pricing Feedback
-- What was the sentiment on pricing? Any specific suggestions?
-
-## Strongest Hook
-- What single element generated the most engagement?
-
-## Recommendations for V2
-- 5 specific, actionable changes to make the post perform better.
-
-Be concrete. Quote the comments. No generic advice."""
+    from prompts.rewrite import ANALYZE as ANALYZE_PROMPT, ANALYZE_SYSTEM
+    prompt = ANALYZE_PROMPT.format(comments_text=comments_text)
 
     print("Analyzing comments...")
-    return _ask_llm(
-        prompt, system="You analyze Reddit community feedback with precision."
-    )
+    return _ask_llm(prompt, system=ANALYZE_SYSTEM)
 
 
 def rewrite(original_post: str, analysis: str) -> str:
-    prompt = f"""You are rewriting a Reddit launch post based on community feedback.
-
-ORIGINAL POST:
-{original_post}
-
-ANALYSIS OF COMMUNITY FEEDBACK:
-{analysis}
-
-Rewrite the post applying the feedback. Specific instructions:
-- Keep the same voice and author identity as the original post
-- Lead with whatever the analysis identified as the strongest hook
-- Address the top objections preemptively (don't wait for comments to raise them)
-- Tighten the positioning against competitors mentioned in feedback
-- Adjust pricing framing based on feedback (if applicable)
-- Cut anything the analysis flagged as weak or ignored
-- Keep it Reddit-native — no corporate speak, no hard sell
-- Same approximate length as the original
-- End with questions that invite the specific feedback you want
-
-Output ONLY the rewritten post, no commentary."""
+    from prompts.rewrite import REWRITE as REWRITE_PROMPT, REWRITE_SYSTEM
+    prompt = REWRITE_PROMPT.format(original_post=original_post, analysis=analysis)
 
     print("Generating improved post...")
-    return _ask_llm(
-        prompt, system="You write authentic Reddit launch posts for SaaS founders."
-    )
+    return _ask_llm(prompt, system=REWRITE_SYSTEM)
 
 
 def main():

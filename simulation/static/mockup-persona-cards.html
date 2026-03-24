@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Persona Card Mockups</title>
+  <style>
+    :root {
+      --bg: #1a1a1b;
+      --card: #272729;
+      --text: #d7dadc;
+      --muted: #818384;
+      --border: #343536;
+      --brand: #ff4500;
+      --brand-hover: #ff5414;
+      --success: #4CAF50;
+      --error: #f44336;
+      --flair-early: #4CAF50;
+      --flair-scaled: #2196F3;
+      --flair-pm: #f44336;
+      --flair-indie: #FF9800;
+      --flair-hr: #9C27B0;
+      --flair-regular: #795548;
+      --flair-vc: #00BCD4;
+      --flair-lurker: #9E9E9E;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 32px; }
+
+    h1 { font-size: 20px; margin-bottom: 8px; color: var(--text); }
+    h2 { font-size: 15px; margin-bottom: 16px; color: var(--muted); font-weight: 400; }
+    .section { margin-bottom: 48px; }
+    .section-title { font-size: 14px; color: var(--brand); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; font-weight: 600; }
+
+    /* ============================================ */
+    /* OPTION A — Compact Reddit-style              */
+    /* Clean rows, archetype as left accent stripe  */
+    /* ============================================ */
+    .grid-a { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .card-a {
+      background: var(--card);
+      border-radius: 8px;
+      padding: 14px 14px 14px 18px;
+      border-left: 3px solid var(--border);
+      transition: border-color 0.15s;
+      position: relative;
+    }
+    .card-a:hover { border-left-color: var(--brand); }
+    .card-a-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .card-a-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .card-a-info { flex: 1; min-width: 0; }
+    .card-a-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-a-meta { font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .card-a-flair {
+      font-size: 10px; padding: 1px 7px; border-radius: 10px;
+      color: #fff; font-weight: 500; display: inline-block;
+    }
+    .card-a-bio { font-size: 12px; color: var(--muted); line-height: 1.5; margin-top: 4px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .card-a-actions { display: flex; gap: 4px; position: absolute; top: 10px; right: 10px; opacity: 0; transition: opacity 0.15s; }
+    .card-a:hover .card-a-actions { opacity: 1; }
+    .card-a-actions button {
+      font-size: 11px; padding: 2px 8px; background: var(--bg); border: 1px solid var(--border);
+      color: var(--muted); border-radius: 4px; cursor: pointer;
+    }
+    .card-a-actions button:hover { border-color: var(--brand); color: var(--text); }
+
+    /* ============================================ */
+    /* OPTION B — Profile-style with demographics   */
+    /* Shows age, country, MBTI as subtle tags      */
+    /* ============================================ */
+    .grid-b { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .card-b {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .card-b:hover { border-color: rgba(255,69,0,0.4); box-shadow: 0 0 0 1px rgba(255,69,0,0.15); }
+    .card-b-top { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .card-b-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .card-b-info { flex: 1; }
+    .card-b-name { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+    .card-b-flair {
+      font-size: 10px; padding: 2px 8px; border-radius: 10px;
+      color: #fff; font-weight: 500;
+    }
+    .card-b-bio { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 10px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .card-b-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+    .card-b-tag {
+      font-size: 10px; padding: 2px 8px; border-radius: 4px;
+      background: rgba(255,255,255,0.06); color: var(--muted);
+    }
+    .card-b-persona { font-size: 11px; color: #6a6a6c; line-height: 1.4; font-style: italic;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .card-b-footer { display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; }
+    .card-b-footer button {
+      font-size: 11px; padding: 3px 10px; background: transparent; border: 1px solid var(--border);
+      color: var(--muted); border-radius: 4px; cursor: pointer;
+    }
+    .card-b-footer button:hover { border-color: var(--brand); color: var(--text); }
+
+    /* ============================================ */
+    /* OPTION C — Minimal list rows                 */
+    /* Dense, scannable, expand on click            */
+    /* ============================================ */
+    .grid-c { display: flex; flex-direction: column; gap: 2px; }
+    .card-c {
+      background: var(--card);
+      border-radius: 6px;
+      padding: 10px 14px;
+      display: flex; align-items: center; gap: 12px;
+      transition: background 0.12s;
+      cursor: pointer;
+    }
+    .card-c:hover { background: #2d2d2f; }
+    .card-c-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .card-c-info { flex: 1; min-width: 0; }
+    .card-c-row { display: flex; align-items: center; gap: 8px; }
+    .card-c-name { font-size: 13px; font-weight: 600; }
+    .card-c-flair {
+      font-size: 9px; padding: 1px 6px; border-radius: 8px;
+      color: #fff; font-weight: 500;
+    }
+    .card-c-bio { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    .card-c-right { display: flex; gap: 4px; flex-shrink: 0; }
+    .card-c-right button {
+      font-size: 10px; padding: 2px 8px; background: transparent; border: 1px solid transparent;
+      color: var(--muted); border-radius: 4px; cursor: pointer;
+    }
+    .card-c:hover .card-c-right button { border-color: var(--border); }
+    .card-c-right button:hover { border-color: var(--brand); color: var(--text); }
+  </style>
+</head>
+<body>
+
+<h1>Persona Card Redesign</h1>
+<h2>Three options for the community personas grid. Same data, different layouts.</h2>
+
+<!-- OPTION A -->
+<div class="section">
+  <div class="section-title">Option A — Compact with accent stripe</div>
+  <div class="grid-a">
+
+    <div class="card-a" style="border-left-color: var(--flair-early);">
+      <div class="card-a-actions"><button>Edit</button><button>Delete</button></div>
+      <div class="card-a-top">
+        <div class="card-a-avatar" style="background: var(--flair-early);">MR</div>
+        <div class="card-a-info">
+          <div class="card-a-name">Marcus Rivera</div>
+          <div class="card-a-meta"><span class="card-a-flair" style="background: var(--flair-early);">Early Founder</span> 28 &middot; USA</div>
+        </div>
+      </div>
+      <div class="card-a-bio">First-time SaaS founder, 6 months in. Obsessed with product-market fit. Reads every launch post to study positioning.</div>
+    </div>
+
+    <div class="card-a" style="border-left-color: var(--flair-pm);">
+      <div class="card-a-actions"><button>Edit</button><button>Delete</button></div>
+      <div class="card-a-top">
+        <div class="card-a-avatar" style="background: var(--flair-pm);">SK</div>
+        <div class="card-a-info">
+          <div class="card-a-name">Sarah Kim</div>
+          <div class="card-a-meta"><span class="card-a-flair" style="background: var(--flair-pm);">Skeptical PM</span> 34 &middot; Canada</div>
+        </div>
+      </div>
+      <div class="card-a-bio">Senior PM at a B2B company. Has seen too many tools overpromise. Always asks "but does it actually work?"</div>
+    </div>
+
+    <div class="card-a" style="border-left-color: var(--flair-indie);">
+      <div class="card-a-actions"><button>Edit</button><button>Delete</button></div>
+      <div class="card-a-top">
+        <div class="card-a-avatar" style="background: var(--flair-indie);">JT</div>
+        <div class="card-a-info">
+          <div class="card-a-name">Jake Thompson</div>
+          <div class="card-a-meta"><span class="card-a-flair" style="background: var(--flair-indie);">Indie Hacker</span> 31 &middot; UK</div>
+        </div>
+      </div>
+      <div class="card-a-bio">Bootstrapped solo founder running 3 micro-SaaS products. Loves sharing revenue numbers and build-in-public updates.</div>
+    </div>
+
+    <div class="card-a" style="border-left-color: var(--flair-lurker);">
+      <div class="card-a-actions"><button>Edit</button><button>Delete</button></div>
+      <div class="card-a-top">
+        <div class="card-a-avatar" style="background: var(--flair-lurker);">LP</div>
+        <div class="card-a-info">
+          <div class="card-a-name">Lisa Park</div>
+          <div class="card-a-meta"><span class="card-a-flair" style="background: var(--flair-lurker);">Lurker</span> 26 &middot; Germany</div>
+        </div>
+      </div>
+      <div class="card-a-bio">Reads r/SaaS daily but rarely comments. Upvotes posts with real data. Saving ideas for her own project someday.</div>
+    </div>
+
+    <div class="card-a" style="border-left-color: var(--flair-vc);">
+      <div class="card-a-actions"><button>Edit</button><button>Delete</button></div>
+      <div class="card-a-top">
+        <div class="card-a-avatar" style="background: var(--flair-vc);">DW</div>
+        <div class="card-a-info">
+          <div class="card-a-name">David Walsh</div>
+          <div class="card-a-meta"><span class="card-a-flair" style="background: var(--flair-vc);">VC / Growth</span> 39 &middot; USA</div>
+        </div>
+      </div>
+      <div class="card-a-bio">Partner at a seed fund. Scouts Reddit for early-stage tools with traction. Cares about TAM and unit economics.</div>
+    </div>
+
+    <div class="card-a" style="border-left-color: var(--flair-scaled);">
+      <div class="card-a-actions"><button>Edit</button><button>Delete</button></div>
+      <div class="card-a-top">
+        <div class="card-a-avatar" style="background: var(--flair-scaled);">AN</div>
+        <div class="card-a-info">
+          <div class="card-a-name">Anika Nair</div>
+          <div class="card-a-meta"><span class="card-a-flair" style="background: var(--flair-scaled);">Scaled Founder</span> 42 &middot; India</div>
+        </div>
+      </div>
+      <div class="card-a-bio">Scaled her SaaS to $2M ARR. Mentors early founders. Comments are long, thoughtful, and full of hard-won advice.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- OPTION B -->
+<div class="section">
+  <div class="section-title">Option B — Profile cards with demographics</div>
+  <div class="grid-b">
+
+    <div class="card-b">
+      <div class="card-b-top">
+        <div class="card-b-avatar" style="background: var(--flair-early);">MR</div>
+        <div class="card-b-info">
+          <div class="card-b-name">Marcus Rivera</div>
+          <span class="card-b-flair" style="background: var(--flair-early);">Early Founder</span>
+        </div>
+      </div>
+      <div class="card-b-bio">First-time SaaS founder, 6 months in. Obsessed with product-market fit. Reads every launch post to study positioning.</div>
+      <div class="card-b-tags">
+        <span class="card-b-tag">28</span>
+        <span class="card-b-tag">ENFP</span>
+        <span class="card-b-tag">USA</span>
+        <span class="card-b-tag">Software Engineer</span>
+      </div>
+      <div class="card-b-persona">"I'm always looking for tools that solve a real pain point. Show me your numbers and I'll take you seriously."</div>
+      <div class="card-b-footer"><button>Edit</button><button>Delete</button></div>
+    </div>
+
+    <div class="card-b">
+      <div class="card-b-top">
+        <div class="card-b-avatar" style="background: var(--flair-pm);">SK</div>
+        <div class="card-b-info">
+          <div class="card-b-name">Sarah Kim</div>
+          <span class="card-b-flair" style="background: var(--flair-pm);">Skeptical PM</span>
+        </div>
+      </div>
+      <div class="card-b-bio">Senior PM at a B2B company. Has seen too many tools overpromise. Always asks "but does it actually work?"</div>
+      <div class="card-b-tags">
+        <span class="card-b-tag">34</span>
+        <span class="card-b-tag">INTJ</span>
+        <span class="card-b-tag">Canada</span>
+        <span class="card-b-tag">Product Manager</span>
+      </div>
+      <div class="card-b-persona">"I've evaluated 50 tools this year. Most are solutions looking for a problem. Prove me wrong."</div>
+      <div class="card-b-footer"><button>Edit</button><button>Delete</button></div>
+    </div>
+
+    <div class="card-b">
+      <div class="card-b-top">
+        <div class="card-b-avatar" style="background: var(--flair-indie);">JT</div>
+        <div class="card-b-info">
+          <div class="card-b-name">Jake Thompson</div>
+          <span class="card-b-flair" style="background: var(--flair-indie);">Indie Hacker</span>
+        </div>
+      </div>
+      <div class="card-b-bio">Bootstrapped solo founder running 3 micro-SaaS products. Loves sharing revenue numbers and build-in-public updates.</div>
+      <div class="card-b-tags">
+        <span class="card-b-tag">31</span>
+        <span class="card-b-tag">ENTP</span>
+        <span class="card-b-tag">UK</span>
+        <span class="card-b-tag">Indie Developer</span>
+      </div>
+      <div class="card-b-persona">"Ship fast, talk to users, iterate. I respect founders who share real numbers, not vanity metrics."</div>
+      <div class="card-b-footer"><button>Edit</button><button>Delete</button></div>
+    </div>
+
+    <div class="card-b">
+      <div class="card-b-top">
+        <div class="card-b-avatar" style="background: var(--flair-hr);">RM</div>
+        <div class="card-b-info">
+          <div class="card-b-name">Rachel Moreno</div>
+          <span class="card-b-flair" style="background: var(--flair-hr);">HR / People Ops</span>
+        </div>
+      </div>
+      <div class="card-b-bio">Head of People at a 200-person startup. Evaluates every HR tool through the lens of employee trust and adoption rates.</div>
+      <div class="card-b-tags">
+        <span class="card-b-tag">37</span>
+        <span class="card-b-tag">ISFJ</span>
+        <span class="card-b-tag">Australia</span>
+        <span class="card-b-tag">HR Director</span>
+      </div>
+      <div class="card-b-persona">"If your tool makes employees feel surveilled, it's dead on arrival. Privacy isn't a feature, it's the foundation."</div>
+      <div class="card-b-footer"><button>Edit</button><button>Delete</button></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- OPTION C -->
+<div class="section">
+  <div class="section-title">Option C — Minimal dense rows</div>
+  <div class="grid-c">
+
+    <div class="card-c">
+      <div class="card-c-avatar" style="background: var(--flair-early);">MR</div>
+      <div class="card-c-info">
+        <div class="card-c-row">
+          <span class="card-c-name">Marcus Rivera</span>
+          <span class="card-c-flair" style="background: var(--flair-early);">Early Founder</span>
+        </div>
+        <div class="card-c-bio">First-time SaaS founder, 6 months in. Obsessed with product-market fit.</div>
+      </div>
+      <div class="card-c-right"><button>Edit</button><button>Delete</button></div>
+    </div>
+
+    <div class="card-c">
+      <div class="card-c-avatar" style="background: var(--flair-pm);">SK</div>
+      <div class="card-c-info">
+        <div class="card-c-row">
+          <span class="card-c-name">Sarah Kim</span>
+          <span class="card-c-flair" style="background: var(--flair-pm);">Skeptical PM</span>
+        </div>
+        <div class="card-c-bio">Senior PM at a B2B company. Has seen too many tools overpromise.</div>
+      </div>
+      <div class="card-c-right"><button>Edit</button><button>Delete</button></div>
+    </div>
+
+    <div class="card-c">
+      <div class="card-c-avatar" style="background: var(--flair-indie);">JT</div>
+      <div class="card-c-info">
+        <div class="card-c-row">
+          <span class="card-c-name">Jake Thompson</span>
+          <span class="card-c-flair" style="background: var(--flair-indie);">Indie Hacker</span>
+        </div>
+        <div class="card-c-bio">Bootstrapped solo founder running 3 micro-SaaS products.</div>
+      </div>
+      <div class="card-c-right"><button>Edit</button><button>Delete</button></div>
+    </div>
+
+    <div class="card-c">
+      <div class="card-c-avatar" style="background: var(--flair-lurker);">LP</div>
+      <div class="card-c-info">
+        <div class="card-c-row">
+          <span class="card-c-name">Lisa Park</span>
+          <span class="card-c-flair" style="background: var(--flair-lurker);">Lurker</span>
+        </div>
+        <div class="card-c-bio">Reads r/SaaS daily but rarely comments. Upvotes posts with real data.</div>
+      </div>
+      <div class="card-c-right"><button>Edit</button><button>Delete</button></div>
+    </div>
+
+    <div class="card-c">
+      <div class="card-c-avatar" style="background: var(--flair-vc);">DW</div>
+      <div class="card-c-info">
+        <div class="card-c-row">
+          <span class="card-c-name">David Walsh</span>
+          <span class="card-c-flair" style="background: var(--flair-vc);">VC / Growth</span>
+        </div>
+        <div class="card-c-bio">Partner at a seed fund. Scouts Reddit for early-stage tools with traction.</div>
+      </div>
+      <div class="card-c-right"><button>Edit</button><button>Delete</button></div>
+    </div>
+
+    <div class="card-c">
+      <div class="card-c-avatar" style="background: var(--flair-scaled);">AN</div>
+      <div class="card-c-info">
+        <div class="card-c-row">
+          <span class="card-c-name">Anika Nair</span>
+          <span class="card-c-flair" style="background: var(--flair-scaled);">Scaled Founder</span>
+        </div>
+        <div class="card-c-bio">Scaled her SaaS to $2M ARR. Mentors early founders.</div>
+      </div>
+      <div class="card-c-right"><button>Edit</button><button>Delete</button></div>
+    </div>
+
+    <div class="card-c">
+      <div class="card-c-avatar" style="background: var(--flair-hr);">RM</div>
+      <div class="card-c-info">
+        <div class="card-c-row">
+          <span class="card-c-name">Rachel Moreno</span>
+          <span class="card-c-flair" style="background: var(--flair-hr);">HR / People Ops</span>
+        </div>
+        <div class="card-c-bio">Head of People at a 200-person startup. Evaluates every HR tool through trust.</div>
+      </div>
+      <div class="card-c-right"><button>Edit</button><button>Delete</button></div>
+    </div>
+
+    <div class="card-c">
+      <div class="card-c-avatar" style="background: var(--flair-regular);">TO</div>
+      <div class="card-c-info">
+        <div class="card-c-row">
+          <span class="card-c-name">Tom O'Brien</span>
+          <span class="card-c-flair" style="background: var(--flair-regular);">Community Regular</span>
+        </div>
+        <div class="card-c-bio">Posts weekly, helps newcomers, calls out spam. Backbone of the subreddit.</div>
+      </div>
+      <div class="card-c-right"><button>Edit</button><button>Delete</button></div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

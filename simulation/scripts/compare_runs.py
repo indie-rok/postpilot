@@ -112,8 +112,9 @@ def _ask_llm(prompt: str) -> str:
     from camel.messages import BaseMessage
 
     model = _create_llm_model()
+    from prompts.report import SYSTEM
     agent = ChatAgent(
-        system_message="You are an expert analyst reviewing Reddit simulation data.",
+        system_message=SYSTEM,
         model=model,
     )
     user_msg = BaseMessage.make_user_message(role_name="User", content=prompt)
@@ -142,11 +143,8 @@ def get_sentiment_distribution(db_path: str) -> dict[str, float]:
     comment_texts = "\n".join(
         f"- [{c.get('user_name', 'unknown')}]: {c['content']}" for c in comments
     )
-    prompt = (
-        "Classify each comment below as exactly one of: supportive, neutral, skeptical.\n"
-        "Return ONLY valid JSON: a list of objects with keys 'user_name', 'sentiment'.\n\n"
-        f"Comments:\n{comment_texts}"
-    )
+    from prompts.report import SENTIMENT
+    prompt = SENTIMENT.format(comment_texts=comment_texts)
     raw = _ask_llm(prompt)
 
     try:

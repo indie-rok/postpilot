@@ -95,6 +95,9 @@
     input[type=text], input[type=password] { margin-bottom: 0; }
     textarea:focus, input[type=text]:focus, input[type=password]:focus { outline: none; border-color: var(--brand); }
 
+    .back-link { color: var(--muted); text-decoration: none; font-size: 13px; }
+    .back-link:hover { color: var(--text); }
+
     details { margin-bottom: 20px; }
     details summary {
       cursor: pointer;
@@ -420,36 +423,43 @@
     .community-row input[type=text] { flex: 1; }
     .community-row button { white-space: nowrap; padding: 8px 16px; font-size: 13px; width: auto; }
 
-    .persona-grid { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 400px; overflow-y: auto; padding: 4px 0; }
+    .persona-grid { display: flex; flex-direction: column; gap: 2px; max-height: 400px; overflow-y: auto; padding: 4px 0; }
     .persona-card {
-      background: var(--bg);
-      border: 1px solid var(--border);
+      background: var(--card);
       border-radius: 6px;
-      padding: 12px;
+      padding: 10px 14px;
+      display: flex; align-items: center; gap: 12px;
       cursor: pointer;
-      transition: border-color 0.15s;
+      transition: background 0.12s;
     }
-    .persona-card:hover { border-color: var(--brand); }
-    .persona-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .persona-card:hover { background: #2d2d2f; }
+    .persona-card-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .persona-card-info { flex: 1; min-width: 0; }
+    .persona-card-row { display: flex; align-items: center; gap: 8px; }
     .persona-card-name { font-weight: 600; font-size: 13px; }
     .persona-card-archetype {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 10px;
+      font-size: 9px;
+      padding: 1px 6px;
+      border-radius: 8px;
       color: #fff;
       font-weight: 500;
     }
-    .persona-card-bio { font-size: 12px; color: var(--muted); line-height: 1.4; }
-    .persona-card-actions { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+    .persona-card-bio { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    .persona-card-actions { display: flex; gap: 4px; flex-shrink: 0; }
     .persona-card-actions button {
-      font-size: 11px;
+      font-size: 10px;
       padding: 2px 8px;
       background: transparent;
-      border: 1px solid var(--border);
+      border: 1px solid transparent;
       color: var(--muted);
       border-radius: 4px;
       cursor: pointer;
     }
+    .persona-card:hover .persona-card-actions button { border-color: var(--border); }
     .persona-card-actions button:hover { border-color: var(--brand); color: var(--text); }
     .persona-card-actions button.delete-btn:hover { border-color: var(--error); color: var(--error); }
 
@@ -507,12 +517,6 @@
     .app-header { padding: 12px 0; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
     .app-wordmark { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; color: #fff; }
     .app-wordmark span { color: var(--brand); }
-    .app-subtitle { font-size: 12px; color: var(--muted); margin-left: 12px; }
-    .product-bar { background: var(--card); border-bottom: 1px solid var(--border); padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
-  .product-info { display: flex; align-items: center; gap: 12px; }
-  .product-icon { width: 36px; height: 36px; background: var(--brand); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: bold; color: #fff; }
-  .product-name { font-size: 16px; font-weight: 700; color: #fff; }
-  .product-tagline { font-size: 13px; color: var(--muted); }
   .settings-btn { background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; width: auto; font-weight: normal; }
   .settings-btn:hover { border-color: var(--text); color: var(--text); background: transparent; }
 
@@ -579,7 +583,7 @@
 
   .actions-bar { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
   
-  .persona-grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 16px; max-height: 400px; overflow-y: auto; }
+  .persona-grid-2col { display: flex; flex-direction: column; gap: 2px; margin-top: 16px; max-height: 400px; overflow-y: auto; }
 
   
   .sim-top-bar {
@@ -810,34 +814,7 @@
             <button type="button" id="suggest-post-btn" style="font-size:12px;padding:4px 12px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:4px;cursor:pointer;width:auto;">✨ Suggest Post</button>
           </div>
           <div id="post-readonly" class="post-preview hidden" style="white-space: pre-wrap;"></div>
-          <textarea id="post-content" class="post-preview" style="height: 300px; resize: vertical; border: 1px solid var(--border); cursor: text;">We built a tool that predicts employee burnout before it turns into a resignation. Here's what we learned from 14 beta companies.
-
-Hey r/SaaS — Maya here, co-founder of FlowPulse.
-
-Quick background: I spent 4 years running People Ops. I watched dozens of great people quietly burn out and leave. Every time, their manager said "I had no idea." The signs were always there — we just didn't have a way to see them in real time.
-
-FlowPulse is a lightweight pulse check platform for remote and hybrid teams:
-
-1. Micro check-ins — one-tap, emoji-based daily prompts (~15 seconds). 78% completion vs ~23% for traditional surveys.
-2. Burnout Radar — ML model that flags at-risk patterns. Managers get suggested actions, not raw data. Individuals stay anonymous unless they opt in.
-
-What we learned from beta (14 companies, ~1,200 users):
-- Privacy is the whole game. We rebuilt our data layer after beta companies almost dropped us.
-- Simpler check-ins = higher signal. Single emoji tap + optional comment.
-- Managers don't want data — they want "what do I do."
-- After-hours work is the strongest burnout predictor. Preceded every resignation by 3–5 weeks.
-
-Numbers: NPS 72, daily active 64%, churn 2.1%, 40+ waitlist.
-Pricing: $4/user/mo (Starter), $8/user/mo (Growth), custom (Enterprise).
-
-Questions:
-1. Does $4–8/user feel right?
-2. Does "privacy-first" resonate or is it table stakes?
-3. "Team analytics" vs "burnout prevention" — which makes you click?
-
-If you want to check it out: flowpulse.io — we just opened early access. No credit card required.
-
-— Maya</textarea>
+          <textarea id="post-content" class="post-preview" placeholder="Write your Reddit post here, or use the ✨ Suggest Post button above to generate one from your product profile." style="height: 300px; resize: vertical; border: 1px solid var(--border); cursor: text;"></textarea>
           <div class="hidden" id="generating-comments" style="display:flex;align-items:center;gap:8px;padding:12px 0;color:var(--muted);font-size:13px;">
             <span class="spinner"></span> Generating comments...
           </div>
@@ -1106,20 +1083,15 @@ function renderDashboard(product, communities, runs) {
   
   let html = `
     <div class="app-header">
-      <div style="display:flex;align-items:baseline;">
+      <div style="display:flex;align-items:center;gap:10px;">
         <div class="app-wordmark">Post<span>Pilot</span></div>
-        <div class="app-subtitle">Test your post before you post</div>
-      </div>
-      <button class="settings-btn" onclick="document.getElementById('settings-panel').classList.add('open')">Settings</button>
-    </div>
-    <div class="product-bar">
-      <div class="product-info">
-        <div class="product-icon">${escapeHTML(initial)}</div>
+        <div style="color:#4a4a4b;font-size:16px;font-weight:300;">/</div>
         <div>
-          <div class="product-name">${escapeHTML(product.name || 'Your Product')}</div>
-          <div class="product-tagline">${escapeHTML(clippedProblem || 'Configure your product details in Settings.')}</div>
+          <div style="font-weight:600;font-size:15px;color:#fff;">${escapeHTML(product.name || 'Your Product')}</div>
+          <div style="font-size:11px;color:var(--muted);">${escapeHTML(clippedProblem || '')}</div>
         </div>
       </div>
+      <button type="button" class="settings-btn" onclick="document.getElementById('settings-panel').classList.add('open')">Settings</button>
     </div>
     <div class="main">
       <div class="section-title">Communities</div>
@@ -1337,14 +1309,18 @@ function renderNewPersonas(profiles) {
   container.innerHTML = profiles.map(p => {
     const flairColor = getFlairColor(p.archetype);
     const bioText = p.bio || '';
+    const initials = (p.realname || p.username || '').split(' ').map(w => w[0] || '').join('').substring(0, 2).toUpperCase();
     return `
       <div class="persona-card" data-id="${p.id}">
-        <div class="persona-header">
-          <span class="persona-name">${escapeHTML(p.realname || p.username)}</span>
-          <span class="persona-archetype" style="background-color:${flairColor}">${escapeHTML(p.archetype)}</span>
+        <div class="persona-card-avatar" style="background-color:${flairColor}">${initials}</div>
+        <div class="persona-card-info">
+          <div class="persona-card-row">
+            <span class="persona-card-name">${escapeHTML(p.realname || p.username)}</span>
+            <span class="persona-card-archetype" style="background-color:${flairColor}">${escapeHTML(p.archetype)}</span>
+          </div>
+          <div class="persona-card-bio">${escapeHTML(bioText)}</div>
         </div>
-        <div class="persona-bio">${escapeHTML(bioText)}</div>
-        <div class="persona-actions">
+        <div class="persona-card-actions">
           <button type="button" onclick="event.stopPropagation(); openEditModal(${p.id}, true)">Edit</button>
           <button type="button" onclick="event.stopPropagation(); deletePersona(${p.id}, true)">Remove</button>
         </div>
@@ -1555,14 +1531,16 @@ async function initSimulateView(communityId) {
       document.getElementById('new-personas-container').innerHTML = profiles.map(p => {
         const flairColor = getFlairColor(p.archetype);
         const bioText = p.bio || '';
-        const personaPreview = (p.persona || '').substring(0, 100) + (p.persona && p.persona.length > 100 ? '...' : '');
+        const initials = (p.realname || p.username || '').split(' ').map(w => w[0] || '').join('').substring(0, 2).toUpperCase();
         return '<div class="persona-card" data-id="' + p.id + '">' +
-          '<div class="persona-card-header">' +
-            '<span class="persona-card-name">' + escapeHTML(p.realname || p.username) + '</span>' +
-            '<span class="persona-card-archetype" style="background-color:' + flairColor + '">' + escapeHTML(p.archetype) + '</span>' +
+          '<div class="persona-card-avatar" style="background-color:' + flairColor + '">' + initials + '</div>' +
+          '<div class="persona-card-info">' +
+            '<div class="persona-card-row">' +
+              '<span class="persona-card-name">' + escapeHTML(p.realname || p.username) + '</span>' +
+              '<span class="persona-card-archetype" style="background-color:' + flairColor + '">' + escapeHTML(p.archetype) + '</span>' +
+            '</div>' +
+            '<div class="persona-card-bio">' + escapeHTML(bioText) + '</div>' +
           '</div>' +
-          '<div class="persona-card-bio">' + escapeHTML(bioText) + '</div>' +
-          (personaPreview ? '<div class="persona-card-bio" style="margin-top:4px;font-style:italic;">' + escapeHTML(personaPreview) + '</div>' : '') +
           '<div class="persona-card-actions">' +
             '<button type="button" onclick="event.stopPropagation(); openEditModal(' + p.id + ')">Edit</button>' +
             '<button type="button" class="delete-btn" onclick="event.stopPropagation(); deletePersona(' + p.id + ')">Delete</button>' +

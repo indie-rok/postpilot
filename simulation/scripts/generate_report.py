@@ -175,8 +175,9 @@ def _ask_llm(prompt: str) -> str:
     from camel.messages import BaseMessage
 
     model = _create_llm_model()
+    from prompts.report import SYSTEM
     agent = ChatAgent(
-        system_message="You are an expert analyst reviewing Reddit simulation data.",
+        system_message=SYSTEM,
         model=model,
     )
     user_msg = BaseMessage.make_user_message(role_name="User", content=prompt)
@@ -193,11 +194,8 @@ def classify_sentiment_llm(comments: list[dict[str, Any]]) -> dict[str, Any]:
     comment_texts = "\n".join(
         f"- [{c.get('user_name', 'unknown')}]: {c['content']}" for c in comments
     )
-    prompt = (
-        "Classify each comment below as exactly one of: supportive, neutral, skeptical.\n"
-        "Return ONLY valid JSON: a list of objects with keys 'user_name', 'sentiment'.\n\n"
-        f"Comments:\n{comment_texts}"
-    )
+    from prompts.report import SENTIMENT
+    prompt = SENTIMENT.format(comment_texts=comment_texts)
     raw = _ask_llm(prompt)
 
     # Parse JSON from response (handle markdown fences)
@@ -228,11 +226,8 @@ def classify_sentiment_llm(comments: list[dict[str, Any]]) -> dict[str, Any]:
 def extract_themes_llm(comments: list[dict[str, Any]]) -> list[str]:
     """Use LLM to extract top recurring themes from comments."""
     comment_texts = "\n".join(f"- {c['content']}" for c in comments)
-    prompt = (
-        "Extract the top 3-5 recurring themes from these Reddit comments.\n"
-        "Return ONLY a JSON list of short theme strings.\n\n"
-        f"Comments:\n{comment_texts}"
-    )
+    from prompts.report import THEMES
+    prompt = THEMES.format(comment_texts=comment_texts)
     raw = _ask_llm(prompt)
 
     text = raw.strip()
@@ -256,15 +251,14 @@ def generate_insights_llm(
 ) -> list[str]:
     """Use LLM to generate actionable recommendations from simulation data."""
     comment_texts = "\n".join(f"- {c['content']}" for c in comments[:10])
-    prompt = (
-        "Based on this Reddit simulation data, provide 3-5 actionable recommendations "
-        "for the product team.\n\n"
-        f"Engagement score: {summary.get('score')}\n"
-        f"Likes: {summary.get('num_likes')}, Dislikes: {summary.get('num_dislikes')}\n"
-        f"Comments: {summary.get('comment_count')}\n"
-        f"Top themes: {', '.join(themes)}\n\n"
-        f"Sample comments:\n{comment_texts}\n\n"
-        "Return ONLY a JSON list of recommendation strings."
+    from prompts.report import INSIGHTS
+    prompt = INSIGHTS.format(
+        score=summary.get('score'),
+        num_likes=summary.get('num_likes'),
+        num_dislikes=summary.get('num_dislikes'),
+        comment_count=summary.get('comment_count'),
+        themes=', '.join(themes),
+        comment_texts=comment_texts,
     )
     raw = _ask_llm(prompt)
 
