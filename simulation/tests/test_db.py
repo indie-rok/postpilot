@@ -120,19 +120,28 @@ def test_save_and_get_product(db_path):
     init_db(db_path)
     save_product(
         db_path,
-        {"name": "TestApp", "tagline": "A test app", "description": "Does testing"},
+        {
+            "name": "TestApp",
+            "problem": "Teams lack visibility",
+            "features": "Analytics, Surveys",
+            "audience": "Remote companies",
+        },
     )
     product = get_product(db_path)
     assert product is not None
     assert product["name"] == "TestApp"
-    assert product["tagline"] == "A test app"
+    assert product["problem"] == "Teams lack visibility"
+    assert product["features"] == "Analytics, Surveys"
+    assert product["audience"] == "Remote companies"
+    assert product["onboarded"] == 0
 
 
 def test_save_product_upserts(db_path):
     init_db(db_path)
-    save_product(db_path, {"name": "V1"})
-    save_product(db_path, {"name": "V2", "tagline": "Updated"})
+    save_product(db_path, {"name": "V1", "problem": "Old problem"})
+    save_product(db_path, {"name": "V2", "problem": "New problem", "audience": "Devs"})
     product = get_product(db_path)
     assert product is not None
     assert product["name"] == "V2"
-    assert product["tagline"] == "Updated"
+    assert product["problem"] == "New problem"
+    assert product["audience"] == "Devs"

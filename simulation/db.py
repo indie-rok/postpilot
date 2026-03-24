@@ -112,14 +112,11 @@ CREATE TABLE IF NOT EXISTS run_scorecard (
 CREATE TABLE IF NOT EXISTS product (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     name TEXT NOT NULL,
-    tagline TEXT,
-    description TEXT,
+    problem TEXT,
     features TEXT,
-    pricing TEXT,
-    target_audience TEXT,
-    llm_model TEXT,
-    llm_base_url TEXT,
-    llm_api_key TEXT,
+    audience TEXT,
+    raw_context TEXT,
+    onboarded INTEGER DEFAULT 0,
     batch_size INTEGER DEFAULT 0,
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL
@@ -885,33 +882,26 @@ def save_product(db_path: str, data: dict[str, Any]) -> None:
         now = datetime.now(timezone.utc).isoformat()
         _ = conn.execute(
             """
-            INSERT INTO product (id, name, tagline, description, features, pricing,
-                target_audience, llm_model, llm_base_url, llm_api_key, batch_size,
-                created_at, updated_at)
-            VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO product (id, name, problem, features, audience,
+                raw_context, onboarded, batch_size, created_at, updated_at)
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
-                tagline = excluded.tagline,
-                description = excluded.description,
+                problem = excluded.problem,
                 features = excluded.features,
-                pricing = excluded.pricing,
-                target_audience = excluded.target_audience,
-                llm_model = excluded.llm_model,
-                llm_base_url = excluded.llm_base_url,
-                llm_api_key = excluded.llm_api_key,
+                audience = excluded.audience,
+                raw_context = excluded.raw_context,
+                onboarded = excluded.onboarded,
                 batch_size = excluded.batch_size,
                 updated_at = excluded.updated_at
             """,
             (
                 data.get("name", ""),
-                data.get("tagline"),
-                data.get("description"),
+                data.get("problem"),
                 data.get("features"),
-                data.get("pricing"),
-                data.get("target_audience"),
-                data.get("llm_model"),
-                data.get("llm_base_url"),
-                data.get("llm_api_key"),
+                data.get("audience"),
+                data.get("raw_context"),
+                data.get("onboarded", 0),
                 data.get("batch_size", 0),
                 now,
                 now,
