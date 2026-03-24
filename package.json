@@ -1,6 +1,6 @@
 {
   "name": "post-pilot",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Test your Reddit launch post against AI community personas before posting",
   "author": "Emmanuel Orozco",
   "homepage": "https://github.com/indie-rok/postpilot",
