@@ -3,7 +3,23 @@
 import json
 import sqlite3
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, TypedDict, cast
+
+
+def get_project_dir() -> Path:
+    """Return the .post-pilot directory under cwd. Create if needed."""
+    d = Path.cwd() / ".post-pilot"
+    d.mkdir(exist_ok=True)
+    return d
+
+
+def get_default_db_path() -> str:
+    return str(get_project_dir() / "post-pilot.db")
+
+
+def get_env_path() -> Path:
+    return get_project_dir() / ".env"
 
 
 class CommunityProfileSeed(TypedDict):

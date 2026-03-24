@@ -24,9 +24,11 @@ from db import (
     delete_community,
     delete_profile,
     delete_run,
+    get_default_db_path,
     get_all_profiles_for_community,
     get_community_by_subreddit,
     get_connection,
+    get_env_path,
     get_product,
     get_results_for_run,
     init_db,
@@ -67,11 +69,11 @@ STATIC_DIR = BASE_DIR / "static"
 ALL_PROFILES_PATH = PROFILES_DIR / "r_saas_community.json"
 RUN_PROFILES_PATH = PROFILES_DIR / "run_profiles.json"
 RUN_POST_PATH = POSTS_DIR / "run_post.txt"
-APP_DB = str(BASE_DIR / "reddit-sim.db")
+APP_DB = get_default_db_path()
 
 THREAD_TEMPLATE: str = cast(str, generate_html_module.TEMPLATE)
 
-_ = load_dotenv(BASE_DIR / ".env")
+_ = load_dotenv(get_env_path())
 
 
 class LLMConfig(BaseModel):
