@@ -606,22 +606,37 @@
 <body>
 <div id="app">
   <div id="view-setup" class="view">
-
 <div style="max-width:700px;margin:60px auto;padding:0 24px;">
   <div style="text-align:center;margin-bottom:32px;">
     <div class="app-wordmark" style="font-size:32px;display:inline;">Post<span>Pilot</span></div>
     <div style="color:var(--muted);font-size:14px;margin-top:6px;">Test your post before you post</div>
   </div>
-  <h2 style="font-size:18px;margin-bottom:8px;">Your Product</h2>
-  <p style="color:var(--muted);font-size:14px;margin-bottom:24px;">Loaded from <code style="background:var(--card);padding:2px 6px;border-radius:4px;">company.md</code></p>
-  
-  <div id="setup-md-content" style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:24px;font-size:14px;line-height:1.7;white-space:pre-wrap;max-height:60vh;overflow-y:auto;"></div>
-  <div id="setup-no-file" class="hidden" style="background:rgba(255,152,0,0.1);border:1px solid rgba(255,152,0,0.3);border-radius:8px;padding:24px;text-align:center;">
-    <div style="font-size:16px;font-weight:600;margin-bottom:8px;">No company.md found</div>
-    <div style="color:var(--muted);font-size:13px;">Create a <code>company.md</code> file in your project root with your product info, then refresh.</div>
+  <p style="color:var(--muted);font-size:14px;margin-bottom:24px;">Here's what we learned about your product. Make any edits before your first simulation.</p>
+
+  <div class="form-group">
+    <div class="small-label">Product Name</div>
+    <input type="text" id="review-name">
   </div>
-  
-  <button type="button" id="setup-continue-btn" style="margin-top:20px;">Continue to Dashboard</button>
+  <div class="form-group">
+    <div class="small-label">What problem does it solve?</div>
+    <textarea id="review-problem" style="height:100px;"></textarea>
+  </div>
+  <div class="form-group">
+    <div class="small-label">Key Features</div>
+    <textarea id="review-features" style="height:80px;"></textarea>
+  </div>
+  <div class="form-group">
+    <div class="small-label">Who is this for?</div>
+    <input type="text" id="review-audience">
+  </div>
+
+  <div style="margin-top:20px;padding:16px;background:var(--card);border-radius:8px;border:1px solid var(--border);">
+    <div class="small-label" style="margin-bottom:8px;">LLM Configuration</div>
+    <div id="review-llm-info" style="color:var(--muted);font-size:13px;"></div>
+    <div style="color:var(--muted);font-size:12px;margin-top:4px;">Edit in <code>.post-pilot/.env</code> or run <code>npx post-pilot configure</code></div>
+  </div>
+
+  <button type="button" id="review-confirm-btn" style="margin-top:20px;">Looks good →</button>
 </div>
 </div>
   <div id="view-dashboard" class="view">
@@ -629,48 +644,30 @@
 <div id="dashboard-content"></div>
 
 <div id="settings-panel" class="settings-panel">
-  <button class="settings-close" onclick="document.getElementById('settings-panel').classList.remove('open')">&times;</button>
+  <button type="button" class="settings-close" onclick="document.getElementById('settings-panel').classList.remove('open')">&times;</button>
   <h2 style="margin-top:0;">Settings</h2>
-  
+
   <div class="form-group" style="margin-top:24px;">
     <div class="small-label">Product Name</div>
     <input type="text" id="dash-setup-name">
   </div>
   <div class="form-group">
-    <div class="small-label">Tagline</div>
-    <input type="text" id="dash-setup-tagline">
-  </div>
-  <div class="form-group">
-    <div class="small-label">Description</div>
-    <textarea id="dash-setup-description" style="height:100px;"></textarea>
+    <div class="small-label">What problem does it solve?</div>
+    <textarea id="dash-setup-problem" style="height:100px;"></textarea>
   </div>
   <div class="form-group">
     <div class="small-label">Key Features</div>
     <textarea id="dash-setup-features" style="height:80px;"></textarea>
   </div>
   <div class="form-group">
-    <div class="small-label">Pricing</div>
-    <input type="text" id="dash-setup-pricing">
+    <div class="small-label">Who is this for?</div>
+    <input type="text" id="dash-setup-audience">
   </div>
-  <div class="form-group">
-    <div class="small-label">Target Audience</div>
-    <input type="text" id="dash-setup-target">
-  </div>
-  
-  <h2 style="margin-top:24px;">Simulation Settings</h2>
-  <div class="form-group">
-    <div class="small-label">LLM Model</div>
-    <input type="text" id="dash-setup-llm-model">
-  </div>
-  <div class="form-group">
-    <div class="small-label">LLM Endpoint</div>
-    <input type="text" id="dash-setup-llm-url">
-  </div>
-  <div class="form-group">
-    <div class="small-label">LLM API Key</div>
-    <input type="password" id="dash-setup-llm-key">
-  </div>
-  
+
+  <h2 style="margin-top:24px;">LLM Configuration</h2>
+  <div style="color:var(--muted);font-size:13px;" id="settings-llm-info">Loading...</div>
+  <div style="color:var(--muted);font-size:12px;margin-top:4px;">Edit in <code>.post-pilot/.env</code> or run <code>npx post-pilot configure</code></div>
+
   <button type="button" id="dash-save-btn" style="margin-top:16px;">Save Settings</button>
 </div>
 
@@ -919,11 +916,11 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
             </div>
 
             <div class="scorecard-section" style="margin-top: 24px;">
-              <button id="rewrite-btn">🔄 Rewrite Post Based on Feedback</button>
+              <button type="button" id="rewrite-btn">🔄 Rewrite Post Based on Feedback</button>
               <div id="rewrite-result" class="hidden" style="margin-top: 16px;">
                 <h3>Improved Post</h3>
                 <textarea id="improved-post" readonly style="height: 200px;"></textarea>
-                <button id="resimulate-btn" style="margin-top: 12px; background: var(--border);">🔄 Re-simulate with this post</button>
+                <button type="button" id="resimulate-btn" style="margin-top: 12px; background: var(--border);">🔄 Re-simulate with this post</button>
               </div>
             </div>
           </div>
@@ -982,7 +979,9 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
 
     function routeToView() {
       const path = window.location.pathname;
-      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => {
+        v.classList.remove('active');
+      });
 
       if (path.startsWith('/simulate/')) {
         document.getElementById('view-simulate').classList.add('active');
@@ -1006,63 +1005,67 @@ If you want to check it out: flowpulse.io — we just opened early access. No cr
     async function checkProductAndRoute() {
       try {
         const resp = await fetch('/api/product');
-        if (resp.ok) { navigateTo('/dashboard'); }
-        else { navigateTo('/setup'); }
-      } catch (e) { navigateTo('/setup'); }
+        if (!resp.ok) {
+          document.getElementById('app').innerHTML = `
+              <div style="text-align:center;margin-top:100px;color:var(--muted);">
+                  <div class="app-wordmark" style="font-size:32px;display:inline;">Post<span>Pilot</span></div>
+                  <p style="margin-top:16px;">Run <code>npx post-pilot init</code> in your terminal to get started.</p>
+              </div>`;
+          return;
+        }
+        const product = await resp.json();
+        if (!product.onboarded) {
+          navigateTo('/setup');
+        } else {
+          navigateTo('/dashboard');
+        }
+      } catch (e) {
+        navigateTo('/setup');
+      }
     }
 
     window.addEventListener('popstate', routeToView);
 
     async function initSetup() {
-      const mdEl = document.getElementById('setup-md-content');
-      const noFileEl = document.getElementById('setup-no-file');
-      const btn = document.getElementById('setup-continue-btn');
-      
       try {
-        const resp = await fetch('/api/company-md');
-        if (!resp.ok) {
-          mdEl.classList.add('hidden');
-          noFileEl.classList.remove('hidden');
-          btn.classList.add('hidden');
-          return;
-        }
-        const data = await resp.json();
-        mdEl.textContent = data.content;
-        mdEl.classList.remove('hidden');
-        noFileEl.classList.add('hidden');
-        btn.classList.remove('hidden');
+        const resp = await fetch('/api/product');
+        if (!resp.ok) return;
+        const product = await resp.json();
+        document.getElementById('review-name').value = product.name || '';
+        document.getElementById('review-problem').value = product.problem || '';
+        document.getElementById('review-features').value = product.features || '';
+        document.getElementById('review-audience').value = product.audience || '';
 
-        btn._companyData = data;
-      } catch (e) {
-        mdEl.classList.add('hidden');
-        noFileEl.classList.remove('hidden');
-        btn.classList.add('hidden');
-      }
+        const envResp = await fetch('/api/llm-config');
+        if (envResp.ok) {
+          const env = await envResp.json();
+          document.getElementById('review-llm-info').textContent =
+              'Model: ' + (env.model || '—') + '  •  Endpoint: ' + (env.base_url || '—');
+        }
+      } catch (e) { console.error(e); }
     }
 
-    document.getElementById('setup-continue-btn').addEventListener('click', async () => {
-      const btn = document.getElementById('setup-continue-btn');
-      const data = btn._companyData || {};
-      
+    document.getElementById('review-confirm-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('review-confirm-btn');
       btn.disabled = true;
       btn.textContent = 'Saving...';
-      
+
       try {
         await fetch('/api/product', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
-            name: data.name || 'My Product',
-            tagline: data.tagline || null,
-            description: data.content || null,
-          }),
+            name: document.getElementById('review-name').value,
+            problem: document.getElementById('review-problem').value,
+            features: document.getElementById('review-features').value,
+            audience: document.getElementById('review-audience').value,
+          })
         });
+        await fetch('/api/product/onboard', { method: 'POST' });
         navigateTo('/dashboard');
-      } catch (err) {
-        alert('Error: ' + err.message);
-      } finally {
+      } catch (e) {
         btn.disabled = false;
-        btn.textContent = 'Continue to Dashboard';
+        btn.textContent = 'Looks good →';
       }
     });
 
@@ -1092,12 +1095,14 @@ async function initDashboard() {
   const runs = await runsResp.json();
   
   renderDashboard(product, communities, runs);
-  setupSettingsPanel(product);
+  await setupSettingsPanel(product);
 }
 
 function renderDashboard(product, communities, runs) {
   const container = document.getElementById('dashboard-content');
   const initial = product.name ? product.name.charAt(0).toUpperCase() : 'P';
+  const productSubtitle = (product.problem || '').trim();
+  const clippedProblem = productSubtitle.length > 60 ? productSubtitle.slice(0, 60) + '...' : productSubtitle;
   
   let html = `
     <div class="app-header">
@@ -1106,6 +1111,15 @@ function renderDashboard(product, communities, runs) {
         <div class="app-subtitle">Test your post before you post</div>
       </div>
       <button class="settings-btn" onclick="document.getElementById('settings-panel').classList.add('open')">Settings</button>
+    </div>
+    <div class="product-bar">
+      <div class="product-info">
+        <div class="product-icon">${escapeHTML(initial)}</div>
+        <div>
+          <div class="product-name">${escapeHTML(product.name || 'Your Product')}</div>
+          <div class="product-tagline">${escapeHTML(clippedProblem || 'Configure your product details in Settings.')}</div>
+        </div>
+      </div>
     </div>
     <div class="main">
       <div class="section-title">Communities</div>
@@ -1195,16 +1209,26 @@ function renderDashboard(product, communities, runs) {
   container.innerHTML = html;
 }
 
-function setupSettingsPanel(product) {
+async function setupSettingsPanel(product) {
   document.getElementById('dash-setup-name').value = product.name || '';
-  document.getElementById('dash-setup-tagline').value = product.tagline || '';
-  document.getElementById('dash-setup-description').value = product.description || '';
+  document.getElementById('dash-setup-problem').value = product.problem || '';
   document.getElementById('dash-setup-features').value = product.features || '';
-  document.getElementById('dash-setup-pricing').value = product.pricing || '';
-  document.getElementById('dash-setup-target').value = product.target_audience || '';
-  document.getElementById('dash-setup-llm-model').value = product.llm_model || 'gpt-5-mini';
-  document.getElementById('dash-setup-llm-url').value = product.llm_base_url || '';
-  document.getElementById('dash-setup-llm-key').value = product.llm_api_key || '';
+  document.getElementById('dash-setup-audience').value = product.audience || '';
+
+  const llmInfoEl = document.getElementById('settings-llm-info');
+  llmInfoEl.textContent = 'Loading...';
+  try {
+    const envResp = await fetch('/api/llm-config');
+    if (!envResp.ok) {
+      llmInfoEl.textContent = 'Model: —  •  Endpoint: —';
+      return;
+    }
+    const env = await envResp.json();
+    llmInfoEl.textContent =
+      'Model: ' + (env.model || '—') + '  •  Endpoint: ' + (env.base_url || '—');
+  } catch (e) {
+    llmInfoEl.textContent = 'Model: —  •  Endpoint: —';
+  }
 }
 
 document.getElementById('dash-save-btn').addEventListener('click', async () => {
@@ -1221,14 +1245,9 @@ document.getElementById('dash-save-btn').addEventListener('click', async () => {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         name,
-        tagline: document.getElementById('dash-setup-tagline').value.trim() || null,
-        description: document.getElementById('dash-setup-description').value.trim() || null,
+        problem: document.getElementById('dash-setup-problem').value.trim() || null,
         features: document.getElementById('dash-setup-features').value.trim() || null,
-        pricing: document.getElementById('dash-setup-pricing').value.trim() || null,
-        target_audience: document.getElementById('dash-setup-target').value.trim() || null,
-        llm_model: document.getElementById('dash-setup-llm-model').value.trim() || null,
-        llm_base_url: document.getElementById('dash-setup-llm-url').value.trim() || null,
-        llm_api_key: document.getElementById('dash-setup-llm-key').value.trim() || null,
+        audience: document.getElementById('dash-setup-audience').value.trim() || null,
       }),
     });
     if (!resp.ok) throw new Error('Failed to save');
@@ -1365,10 +1384,18 @@ async function initSimulateView(communityId) {
   
   if (productResp.ok) {
     const product = await productResp.json();
-    if (product.llm_model) llmModelInput.value = product.llm_model;
-    if (product.llm_base_url) baseUrlInput.value = product.llm_base_url;
-    if (product.llm_api_key) apiKeyInput.value = product.llm_api_key;
     if (product.batch_size != null) batchSizeInput.value = product.batch_size;
+  }
+
+  try {
+    const llmConfigResp = await fetch('/api/llm-config');
+    if (llmConfigResp.ok) {
+      const llmConfig = await llmConfigResp.json();
+      if (llmConfig.model) llmModelInput.value = llmConfig.model;
+      if (llmConfig.base_url) baseUrlInput.value = llmConfig.base_url;
+    }
+  } catch (e) {
+    console.error('Failed to load LLM config:', e);
   }
   
   const params = new URLSearchParams(window.location.search);
@@ -1620,8 +1647,12 @@ async function initSimulateView(communityId) {
     // Tabs logic
     tabs.forEach(tab => {
       tab.addEventListener('click', () => {
-        tabs.forEach(t => t.classList.remove('active'));
-        tabContents.forEach(c => c.classList.remove('active'));
+        tabs.forEach(t => {
+          t.classList.remove('active');
+        });
+        tabContents.forEach(c => {
+          c.classList.remove('active');
+        });
         
         tab.classList.add('active');
         document.getElementById(tab.dataset.target).classList.add('active');

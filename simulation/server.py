@@ -77,9 +77,9 @@ _ = load_dotenv(get_env_path())
 
 
 class LLMConfig(BaseModel):
-    llm_api_key: str = ""
-    llm_base_url: str = ""
-    llm_model: str = ""
+    llm_api_key: str = Field(default_factory=lambda: os.getenv("LLM_API_KEY", ""))
+    llm_base_url: str = Field(default_factory=lambda: os.getenv("LLM_BASE_URL", ""))
+    llm_model: str = Field(default_factory=lambda: os.getenv("LLM_MODEL", ""))
 
 
 class SimulateRequest(BaseModel):
@@ -154,9 +154,9 @@ class SimulationCoordinator:
                     detail="A simulation is already running. Wait for completion.",
                 )
             self._llm_config = LLMConfig(
-                llm_api_key=request.llm_api_key,
-                llm_base_url=request.llm_base_url,
-                llm_model=request.llm_model,
+                llm_api_key=request.llm_api_key or os.getenv("LLM_API_KEY", ""),
+                llm_base_url=request.llm_base_url or os.getenv("LLM_BASE_URL", ""),
+                llm_model=request.llm_model or os.getenv("LLM_MODEL", ""),
             )
             self._current_task = asyncio.create_task(self._run(request, tag))
 
@@ -351,6 +351,7 @@ app.add_middleware(
 def startup_init_db() -> None:
     init_db(APP_DB)
     seed_default_community(APP_DB, str(ALL_PROFILES_PATH))
+    coordinator._llm_config = LLMConfig()
 
 
 @app.post("/api/simulate")
@@ -602,27 +603,6 @@ async def delete_community_endpoint(community_id: int) -> dict[str, str]:
     return {"status": "deleted"}
 
 
-@app.get("/api/company-md")
-async def get_company_md() -> dict[str, Any]:
-    cwd = Path.cwd()
-    md_path = cwd / "company.md"
-    if not md_path.exists():
-        md_path = cwd.parent / "company.md"
-    if not md_path.exists():
-        raise HTTPException(status_code=404, detail="No company.md found")
-    content = md_path.read_text(encoding="utf-8")
-    name = ""
-    tagline = ""
-    for line in content.splitlines():
-        stripped = line.strip()
-        if not name and stripped.startswith("# "):
-            name = stripped[2:].strip()
-        elif name and not tagline and stripped and not stripped.startswith("#"):
-            tagline = stripped
-            break
-    return {"content": content, "name": name, "tagline": tagline}
-
-
 @app.post("/api/suggest-post/{community_id}")
 async def suggest_post(community_id: int) -> dict[str, str]:
     import scripts.generate_community as gen_module
@@ -653,7 +633,7 @@ async def suggest_post(community_id: int) -> dict[str, str]:
     prompt = f"""Write a compelling Reddit launch post for the subreddit {community["subreddit"]}.
 
 PRODUCT INFO:
-{company_md or product.get("description", product.get("name", "Unknown product"))}
+{company_md or product.get("raw_context") or product.get("problem") or product.get("name", "Unknown product")}
 
 COMMUNITY PERSONAS ({len(profiles)} members):
 Archetypes: {", ".join(sorted(archetypes))}
@@ -680,16 +660,13 @@ Return ONLY the post text, no title prefix, no markdown formatting."""
 
 
 class ProductRequest(BaseModel):
-    name: str = Field(min_length=1)
-    tagline: str | None = None
-    description: str | None = None
+    name: str = ""
+    problem: str | None = None
     features: str | None = None
-    pricing: str | None = None
-    target_audience: str | None = None
-    llm_model: str | None = None
-    llm_base_url: str | None = None
-    llm_api_key: str | None = None
-    batch_size: int = 0
+    audience: str | None = None
+    raw_context: str | None = None
+    onboarded: int = Field(default=0)
+    batch_size: int = Field(default=0)
 
 
 @app.get("/api/product")
@@ -702,8 +679,27 @@ async def get_product_endpoint() -> JSONResponse:
 
 @app.post("/api/product")
 async def save_product_endpoint(request: ProductRequest) -> dict[str, str]:
-    save_product(APP_DB, request.model_dump())
+    existing = get_product(APP_DB) or {}
+    updates = request.model_dump(exclude_unset=True)
+    save_product(APP_DB, {**existing, **updates})
     return {"status": "saved"}
+
+
+@app.post("/api/product/onboard")
+async def onboard_product() -> dict[str, str]:
+    product = get_product(APP_DB)
+    if not product:
+        raise HTTPException(status_code=404, detail="No product found")
+    save_product(APP_DB, {**product, "onboarded": 1})
+    return {"status": "ok"}
+
+
+@app.get("/api/llm-config")
+async def get_llm_config() -> dict[str, str]:
+    return {
+        "model": os.getenv("LLM_MODEL", ""),
+        "base_url": os.getenv("LLM_BASE_URL", ""),
+    }
 
 
 @app.get("/api/runs")
