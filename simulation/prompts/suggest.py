@@ -1,4 +1,6 @@
-SYSTEM = "You write authentic Reddit launch posts."
+from prompts.humanizer import WRITING_RULES
+
+SYSTEM = "You write authentic Reddit launch posts.\n\n" + WRITING_RULES
 
 SUGGEST_POST = """Write a compelling Reddit launch post for the subreddit {subreddit}.
 

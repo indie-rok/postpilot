@@ -1,3 +1,5 @@
+from prompts.humanizer import WRITING_RULES
+
 ANALYZE_SYSTEM = "You analyze Reddit community feedback with precision."
 
 ANALYZE = """You are analyzing Reddit comments on a launch post.
@@ -31,7 +33,7 @@ Analyze and produce a structured report:
 
 Be concrete. Quote the comments. No generic advice."""
 
-REWRITE_SYSTEM = "You write authentic Reddit launch posts."
+REWRITE_SYSTEM = "You write authentic Reddit launch posts.\n\n" + WRITING_RULES
 
 REWRITE = """You are rewriting a Reddit launch post based on community feedback.
 

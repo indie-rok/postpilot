@@ -61,3 +61,26 @@ def test_batch_humanize_specifies_json_output():
     from prompts.humanizer import BATCH_HUMANIZE
 
     assert "json" in BATCH_HUMANIZE.lower()
+
+
+def test_suggest_system_includes_writing_rules():
+    from prompts.suggest import SYSTEM
+    from prompts.humanizer import WRITING_RULES
+
+    assert WRITING_RULES in SYSTEM
+    assert "authentic" in SYSTEM.lower()  # original content preserved
+
+
+def test_rewrite_system_includes_writing_rules():
+    from prompts.rewrite import REWRITE_SYSTEM
+    from prompts.humanizer import WRITING_RULES
+
+    assert WRITING_RULES in REWRITE_SYSTEM
+    assert "authentic" in REWRITE_SYSTEM.lower()
+
+
+def test_analyze_system_unchanged():
+    from prompts.rewrite import ANALYZE_SYSTEM
+
+    # ANALYZE_SYSTEM should NOT contain humanizer rules
+    assert "delve" not in ANALYZE_SYSTEM.lower() or len(ANALYZE_SYSTEM) < 200
