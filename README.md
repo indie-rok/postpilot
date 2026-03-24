@@ -1,10 +1,12 @@
 # Post Pilot
 
+**From code to reddit**
 **Test your Reddit launch post before you post it.**
 
-Post Pilot simulates a Reddit community reacting to your launch post. A handful of AI personas (the skeptic, the early adopter, the lurker, the competitor...) read your post and respond the way real Redditors would. You get feedback, a scorecard, and a rewritten version of your post before anyone real sees it.
+Post Pilot simulates a Reddit community reacting to your launch post. It reads your project (features, target personas, problem/solution) and it generates a simulation where AI Personas   (generated with subreddit data) read your post and respond the way real Redditors would. You get feedback, a scorecard, and a rewritten version of your post before anyone real sees it.
 
 [![npm version](https://img.shields.io/npm/v/post-pilot)](https://www.npmjs.com/package/post-pilot)
+![Status: Beta](https://img.shields.io/badge/status-beta-orange)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/indie-rok/postpilot/blob/main/LICENSE)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
 
@@ -17,12 +19,10 @@ Post Pilot simulates a Reddit community reacting to your launch post. A handful 
 
 ## How it works
 
-1. You write a launch post (or Post Pilot generates one from your repo)
+1. You write a launch post (or Post Pilot generates one from your codebase features)
 2. AI personas simulate a full Reddit thread with upvotes, downvotes, comments, skepticism, the works
-3. You get a scorecard with sentiment breakdown, engagement numbers, and what landed vs. what flopped
+3. You get a scorecard with sentiment breakdown, engagement numbers, and what landed vs. what needs to be polished
 4. Post Pilot rewrites your post using what it learned from the simulation
-
-All generated text goes through a humanizer that strips out AI writing patterns, so the comments actually read like people wrote them.
 
 ---
 
@@ -32,15 +32,17 @@ All generated text goes through a humanizer that strips out AI writing patterns,
 
 - Node.js 18+
 - Python 3.11 (exactly 3.11, the simulation engine needs it)
-- An LLM API key (OpenRouter, OpenAI, or any OpenAI-compatible provider)
+- An LLM API key (any OpenAI-compatible provider. OpenRouter, OpenAI, etc)
 
 ### Setup
+
+From your *project directory* (needed to generate an accurate company description), run: 
 
 ```bash
 npx post-pilot init
 ```
 
-This walks you through connecting your LLM provider (API key, model, base URL), optionally connecting Reddit for posting later, and scanning your repo to build a product profile.
+This walks you through connecting your LLM provider (API key, model, base URL), optionally connecting Reddit for generate real user personas with sub reddit data, and scanning your repo to build a product profile.
 
 ### Run
 
@@ -48,7 +50,7 @@ This walks you through connecting your LLM provider (API key, model, base URL), 
 npx post-pilot serve
 ```
 
-Open `http://localhost:8000`, write or generate a post, pick your community personas, and hit simulate.
+Open `http://localhost:8000/setup`, to confirm the generate write or generate a post, pick your community personas, and hit simulate.
 
 ---
 
@@ -64,26 +66,6 @@ Open `http://localhost:8000`, write or generate a post, pick your community pers
 
 ---
 
-## What you get
-
-A full Reddit-style comment thread with 8 persona archetypes reacting to your post: early adopters, skeptics, tech leads, budget-conscious buyers, lurkers, competitors, power users, and community moderators.
-
-A scorecard covering engagement metrics (upvotes, comments, engagement rate), sentiment distribution, and per-comment classification.
-
-An analysis section that breaks down what resonated, what got pushback, recurring questions, positioning gaps, and the strongest hook in your post.
-
-A rewritten version of your post that addresses the feedback and leads with whatever worked best.
-
----
-
-## How the simulation works
-
-Post Pilot uses [OASIS](https://github.com/camel-ai/oasis) (Open Agent Social Interaction Simulations) to run a multi-agent simulation. Each agent has a persona with demographics, interests, personality type, and a specific archetype that shapes how they react.
-
-The simulation runs in rounds. Agents see the post, decide whether to engage, write comments, and react to each other's comments. Afterward, a humanizer pass rewrites all generated text to strip out AI writing patterns (em dashes, "delve", "pivotal", sycophantic tone, etc.).
-
----
-
 ## Configuration
 
 Post Pilot stores config in `.post-pilot/` in your project directory:
@@ -92,7 +74,7 @@ Post Pilot stores config in `.post-pilot/` in your project directory:
 .post-pilot/
   .env          # API keys (LLM + Reddit)
   post-pilot.db # Product profile, runs, results
-  .venv/        # Python virtual environment (auto-created)
+  .venv/        # Python virtual environment (all python simulation libs)
 ```
 
 The `.post-pilot/` directory is automatically added to your `.gitignore`.
@@ -100,8 +82,6 @@ The `.post-pilot/` directory is automatically added to your `.gitignore`.
 ### LLM providers
 
 Any OpenAI-compatible API works. During `init`, you provide your API key, base URL (defaults to `https://openrouter.ai/api/v1`), and model (defaults to `gpt-4o-mini`).
-
-Tested with: OpenRouter, OpenAI, Anthropic (via OpenRouter), Groq, Together AI.
 
 ---
 
