@@ -54,7 +54,7 @@ function findPython() {
     try {
       const version = execSync(`${cmd} --version 2>&1`, { encoding: 'utf8' }).trim();
       const match = version.match(/Python (\d+)\.(\d+)/);
-      if (match && (parseInt(match[1]) > 3 || (parseInt(match[1]) === 3 && parseInt(match[2]) >= 11))) {
+      if (match && parseInt(match[1]) === 3 && parseInt(match[2]) === 11) {
         return cmd;
       }
     } catch {}
@@ -112,7 +112,7 @@ async function main() {
 
   const python = findPython();
   if (!python) {
-    console.error('Python 3.11+ is required. Install from https://python.org');
+    console.error('Python 3.11 is required (3.12+ not supported by camel-oasis). Install from https://python.org');
     process.exit(1);
   }
 

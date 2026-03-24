@@ -16,6 +16,6 @@ Write the post as if you are the founder/maker posting in {subreddit}. Make it:
 - Ask 2-3 genuine questions to spark discussion
 - Match the tone of {subreddit}
 - Address concerns that the community archetypes would likely raise
-- Keep it under 500 words
+- Keep it under 100 words
 
 Return ONLY the post text, no title prefix, no markdown formatting."""
