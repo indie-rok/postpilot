@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import random
+import sqlite3
 import sys
 from datetime import datetime, timezone
 from typing import Any, cast
@@ -290,6 +291,7 @@ async def run_simulation(
 
 
 from prompts.simulation import INTERVIEW as INTERVIEW_PROMPT
+from prompts.humanizer import BATCH_HUMANIZE, BATCH_HUMANIZE_SYSTEM
 
 
 async def run_interviews(
@@ -378,6 +380,96 @@ async def run_interviews(
                 llm_calls=llm_calls,
             )
     return (results, llm_calls)
+
+
+def _ask_humanizer(prompt: str) -> str:
+    """Send a prompt to the humanizer LLM and return the raw response text."""
+    from camel.agents import ChatAgent
+    from camel.messages import BaseMessage
+
+    model = ModelFactory.create(
+        model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+        model_type=os.getenv("LLM_MODEL", "gpt-5-mini"),
+        api_key=os.getenv("LLM_API_KEY"),
+        url=os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
+        model_config_dict={"temperature": 0.3},
+    )
+    agent = ChatAgent(model=model, system_message=BATCH_HUMANIZE_SYSTEM)
+    msg = BaseMessage.make_user_message(role_name="User", content=prompt)
+    response = agent.step(msg)
+    return response.msgs[0].content
+
+
+def humanize_comments(oasis_db_path: str) -> int:
+    """Rewrite comments in the OASIS DB to remove AI writing patterns.
+
+    Returns the number of LLM calls made.
+    """
+    conn = sqlite3.connect(oasis_db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        rows = conn.execute(
+            "SELECT c.comment_id, COALESCE(u.user_name, u.name) AS author, c.content "
+            "FROM comment c JOIN user u ON c.user_id = u.user_id "
+            "WHERE c.post_id = 1 "
+            "ORDER BY c.created_at"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    if not rows:
+        return 0
+
+    comments = [
+        {"id": int(r["comment_id"]), "author": r["author"], "content": r["content"]}
+        for r in rows
+    ]
+
+    # Chunk into batches of 25
+    batch_size = 25
+    batches = [comments[i:i + batch_size] for i in range(0, len(comments), batch_size)]
+    llm_calls = 0
+
+    for batch in batches:
+        prompt = BATCH_HUMANIZE.format(comments_json=json.dumps(batch, indent=2))
+        try:
+            raw = _ask_humanizer(prompt)
+            llm_calls += 1
+
+            # Strip markdown code fences
+            text = raw.strip()
+            if text.startswith("```"):
+                text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+                text = text.rsplit("```", 1)[0]
+
+            rewritten = json.loads(text)
+            if not isinstance(rewritten, list):
+                print("Warning: humanizer returned non-list, skipping batch")
+                continue
+
+            # Write back to OASIS DB
+            update_conn = sqlite3.connect(oasis_db_path)
+            try:
+                for item in rewritten:
+                    comment_id = item.get("id")
+                    content = item.get("content")
+                    if comment_id is not None and content is not None:
+                        update_conn.execute(
+                            "UPDATE comment SET content = ? WHERE comment_id = ?",
+                            (str(content), int(comment_id)),
+                        )
+                update_conn.commit()
+            finally:
+                update_conn.close()
+
+        except (json.JSONDecodeError, KeyError, TypeError) as exc:
+            print(f"Warning: humanizer batch failed ({exc}), using original comments")
+            continue
+        except Exception as exc:
+            print(f"Warning: humanizer LLM call failed ({exc}), using original comments")
+            continue
+
+    return llm_calls
 
 
 def main():
