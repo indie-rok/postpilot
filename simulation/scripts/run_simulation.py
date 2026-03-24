@@ -273,11 +273,16 @@ async def run_simulation(
     interview_count = len(interviews) if isinstance(interviews, list) else 0
     print(f"{interview_count} interviews complete")
 
-    emit_progress(phase="complete", llm_calls=llm_calls)
-
     await env.close()
 
-    # Extract OASIS results AFTER env.close() to ensure all data is flushed to SQLite
+    # Humanize comments — rewrite AI patterns before extraction
+    emit_progress(phase="humanizing", llm_calls=llm_calls)
+    print("Humanizing comments...")
+    humanizer_calls = humanize_comments(db_path)
+    llm_calls += humanizer_calls
+    print(f"Humanization complete ({humanizer_calls} LLM calls)")
+
+    # Extract OASIS results AFTER env.close() and humanization
     if app_db_path is not None and run_id is not None:
         extract_oasis_results(app_db_path, db_path, run_id, oasis_to_run_agent)
         update_run_status(
@@ -286,6 +291,8 @@ async def run_simulation(
             "complete",
             completed_at=datetime.now(timezone.utc).isoformat(),
         )
+
+    emit_progress(phase="complete", llm_calls=llm_calls)
 
     return db_path
 
