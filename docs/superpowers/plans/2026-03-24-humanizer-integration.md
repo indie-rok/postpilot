@@ -404,18 +404,27 @@ import sqlite3  # not currently imported — needed for humanize_comments
 from prompts.humanizer import BATCH_HUMANIZE, BATCH_HUMANIZE_SYSTEM
 ```
 
-Note: `ChatAgent` and `BaseMessage` are already imported in `run_simulation.py` via OASIS's internals, but they are NOT explicitly imported at module level. Add them near the existing camel imports (around line 30-31):
+Add two functions before `main()` (after `run_interviews`). The `_ask_humanizer()` helper wraps the LLM call so tests can monkeypatch it — this matches the codebase convention used in `generate_scorecard.py`, `analyze_and_rewrite.py`, etc. where `_ask_llm()` is the monkeypatch target:
 
 ```python
-from camel.agents import ChatAgent
-from camel.messages import BaseMessage
-```
+def _ask_humanizer(prompt: str) -> str:
+    """Send a prompt to the humanizer LLM and return the raw response text."""
+    from camel.agents import ChatAgent
+    from camel.messages import BaseMessage
 
-These module-level imports are required for the monkeypatch test strategy to work (tests monkeypatch `scripts.run_simulation.ChatAgent`).
+    model = ModelFactory.create(
+        model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
+        model_type=os.getenv("LLM_MODEL", "gpt-5-mini"),
+        api_key=os.getenv("LLM_API_KEY"),
+        url=os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
+        model_config_dict={"temperature": 0.3},
+    )
+    agent = ChatAgent(model=model, system_message=BATCH_HUMANIZE_SYSTEM)
+    msg = BaseMessage.make_user_message(role_name="User", content=prompt)
+    response = agent.step(msg)
+    return response.msgs[0].content
 
-Add the function before `main()` (after `run_interviews`):
 
-```python
 def humanize_comments(oasis_db_path: str) -> int:
     """Rewrite comments in the OASIS DB to remove AI writing patterns.
 
@@ -446,22 +455,10 @@ def humanize_comments(oasis_db_path: str) -> int:
     batches = [comments[i:i + batch_size] for i in range(0, len(comments), batch_size)]
     llm_calls = 0
 
-    # Use temperature=0.3 (not the simulation's 0.8) for precise rewriting
-    model = ModelFactory.create(
-        model_platform=ModelPlatformType.OPENAI_COMPATIBLE_MODEL,
-        model_type=os.getenv("LLM_MODEL", "gpt-5-mini"),
-        api_key=os.getenv("LLM_API_KEY"),
-        url=os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
-        model_config_dict={"temperature": 0.3},
-    )
-
     for batch in batches:
         prompt = BATCH_HUMANIZE.format(comments_json=json.dumps(batch, indent=2))
         try:
-            agent = ChatAgent(model=model, system_message=BATCH_HUMANIZE_SYSTEM)
-            msg = BaseMessage.make_user_message(role_name="User", content=prompt)
-            response = agent.step(msg)
-            raw = response.msgs[0].content
+            raw = _ask_humanizer(prompt)
             llm_calls += 1
 
             # Strip markdown code fences
@@ -562,19 +559,11 @@ def test_humanize_comments_rewrites_content(oasis_db, monkeypatch):
         {"id": 2, "content": "It also explores how these forces interact."},
     ])
 
-    # Mock the ChatAgent to return our fake response
-    class FakeResponse:
-        def __init__(self):
-            self.msgs = [type("Msg", (), {"content": fake_response})()]
-
-    class FakeAgent:
-        def __init__(self, **kwargs):
-            pass
-        def step(self, msg):
-            return FakeResponse()
-
+    # Monkeypatch the _ask_humanizer helper — this bypasses ModelFactory,
+    # ChatAgent, and BaseMessage entirely, matching the codebase convention
+    # (see test_scorecard.py monkeypatching _ask_llm)
     from scripts import run_simulation
-    monkeypatch.setattr(run_simulation, "ChatAgent", FakeAgent)
+    monkeypatch.setattr(run_simulation, "_ask_humanizer", lambda prompt: fake_response)
 
     calls = run_simulation.humanize_comments(oasis_db)
     assert calls == 1
@@ -592,14 +581,11 @@ def test_humanize_comments_rewrites_content(oasis_db, monkeypatch):
 def test_humanize_comments_handles_llm_failure(oasis_db, monkeypatch):
     _seed_oasis_comments(oasis_db)
 
-    class FakeAgent:
-        def __init__(self, **kwargs):
-            pass
-        def step(self, msg):
-            raise RuntimeError("LLM API timeout")
+    def _fake_ask_humanizer(prompt):
+        raise RuntimeError("LLM API timeout")
 
     from scripts import run_simulation
-    monkeypatch.setattr(run_simulation, "ChatAgent", FakeAgent)
+    monkeypatch.setattr(run_simulation, "_ask_humanizer", _fake_ask_humanizer)
 
     calls = run_simulation.humanize_comments(oasis_db)
     assert calls == 0  # no successful calls
@@ -617,18 +603,9 @@ def test_humanize_comments_handles_llm_failure(oasis_db, monkeypatch):
 def test_humanize_comments_handles_bad_json(oasis_db, monkeypatch):
     _seed_oasis_comments(oasis_db)
 
-    class FakeResponse:
-        def __init__(self):
-            self.msgs = [type("Msg", (), {"content": "Sorry, I can't do that."})()]
-
-    class FakeAgent:
-        def __init__(self, **kwargs):
-            pass
-        def step(self, msg):
-            return FakeResponse()
-
+    # LLM returns non-JSON text
     from scripts import run_simulation
-    monkeypatch.setattr(run_simulation, "ChatAgent", FakeAgent)
+    monkeypatch.setattr(run_simulation, "_ask_humanizer", lambda prompt: "Sorry, I can't do that.")
 
     calls = run_simulation.humanize_comments(oasis_db)
     assert calls == 1  # LLM call succeeded, JSON parse failed
