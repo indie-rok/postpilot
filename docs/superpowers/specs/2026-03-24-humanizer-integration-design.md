@@ -18,20 +18,51 @@ LLM-generated text — both simulated Reddit comments from OASIS agents and user
 
 Two constants:
 
-- `WRITING_RULES` — The complete humanizer ruleset (all 25+ categories). Covers:
-  - AI vocabulary blacklist (delve, leverage, landscape, utilize, facilitate, etc.)
-  - Em dash prohibition
-  - No rule-of-three lists
-  - No inflated significance ("This isn't just X — it's Y")
-  - No sycophantic tone
-  - No unnecessary adverbs (fundamentally, essentially, arguably)
-  - No corporate/promotional language
-  - Contractions preferred
-  - Vary sentence structure
-  - No hedge-then-assert pattern
-  - No false dichotomies
-  - No "straightforward" / "it's worth noting"
-  - All other categories from the humanizer SKILL.md
+- `WRITING_RULES` — The complete humanizer ruleset, sourced from [blader/humanizer SKILL.md](https://github.com/blader/humanizer/blob/main/SKILL.md) (based on Wikipedia's "Signs of AI writing" guide). Contains all 25 categories, each with its "words to watch" list and the rule to follow. Adapted from an editing guide into prompt instruction format ("Do not use...", "Avoid...", "Instead of X, write Y").
+
+  The 25 categories:
+
+  **Content patterns (1-6):**
+  1. Undue emphasis on significance/legacy/broader trends — words: "stands as", "testament", "pivotal", "underscores", "evolving landscape"
+  2. Undue emphasis on notability/media coverage — words: "independent coverage", "active social media presence"
+  3. Superficial -ing analyses — words: "highlighting", "ensuring", "reflecting", "symbolizing", "showcasing"
+  4. Promotional/advertisement language — words: "boasts", "vibrant", "nestled", "groundbreaking", "breathtaking", "stunning"
+  5. Vague attributions/weasel words — words: "Industry reports", "Experts argue", "Some critics"
+  6. Formulaic "Challenges and Future Prospects" sections — words: "Despite its... faces challenges", "Future Outlook"
+
+  **Language/grammar patterns (7-12):**
+  7. Overused AI vocabulary — words: "Additionally", "crucial", "delve", "enhance", "fostering", "garner", "interplay", "intricate", "landscape" (abstract), "pivotal", "showcase", "tapestry" (abstract), "testament", "underscore", "vibrant"
+  8. Copula avoidance — words: "serves as", "stands as", "boasts", "features" instead of "is"/"has"
+  9. Negative parallelisms — "Not only...but...", "It's not just X — it's Y"
+  10. Rule of three overuse — forcing ideas into groups of three
+  11. Elegant variation / synonym cycling — excessive synonym substitution for the same noun
+  12. False ranges — "from X to Y" where X and Y aren't on a meaningful scale
+
+  **Style patterns (13-18):**
+  13. Em dash overuse — replace with commas, periods, or parentheses
+  14. Overuse of boldface — mechanical emphasis
+  15. Inline-header vertical lists — bolded headers with colons in bullet points
+  16. Title Case in headings — capitalize all main words
+  17. Emojis — decorating headings or bullet points
+  18. Curly quotation marks — use straight quotes
+
+  **Communication patterns (19-21):**
+  19. Collaborative artifacts — "I hope this helps!", "Certainly!", "Would you like..."
+  20. Knowledge-cutoff disclaimers — "as of [date]", "While specific details are limited..."
+  21. Sycophantic/servile tone — "Great question!", "You're absolutely right!"
+
+  **Filler and hedging (22-25):**
+  22. Filler phrases — "In order to", "Due to the fact that", "It is important to note"
+  23. Excessive hedging — "could potentially possibly be argued"
+  24. Generic positive conclusions — "The future looks bright", "Exciting times lie ahead"
+  25. Hyphenated word pair overuse — over-consistent hyphenation of common compounds
+
+  **Plus the "Personality and Soul" meta-rules:**
+  - Vary sentence rhythm (short punchy, then longer)
+  - Have opinions, not just neutral reporting
+  - Acknowledge complexity and mixed feelings
+  - Use first person when it fits
+  - Be specific about feelings, not generic
 
 - `BATCH_HUMANIZE_SYSTEM` — System message for the humanizer agent: "You rewrite text to remove AI writing patterns while preserving meaning and voice."
 
