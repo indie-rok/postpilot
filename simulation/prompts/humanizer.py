@@ -123,5 +123,23 @@ BAD: "The cross-functional team delivered a high-quality, data-driven report."
 GOOD: "The cross functional team delivered a high quality, data driven report."
 """
 
-BATCH_HUMANIZE_SYSTEM = ""
-BATCH_HUMANIZE = ""
+BATCH_HUMANIZE_SYSTEM = "You rewrite text to remove AI writing patterns while preserving meaning and voice."
+
+BATCH_HUMANIZE = """Rewrite each comment below to remove AI writing patterns.
+Apply these rules:
+
+""" + WRITING_RULES + """
+
+COMMENTS TO REWRITE:
+{comments_json}
+
+INSTRUCTIONS:
+- Preserve each comment's meaning, tone, approximate length, and persona voice
+- ONLY remove AI writing patterns — do not change the substance
+- Keep the author's personality and perspective intact
+- Return ONLY a JSON array of objects with "id" and "content" keys
+- The "id" must match the original comment's "id"
+- No surrounding text, no markdown fences, no commentary
+
+OUTPUT FORMAT (JSON array only):
+[{{"id": 1, "content": "rewritten text"}}, {{"id": 2, "content": "rewritten text"}}]"""

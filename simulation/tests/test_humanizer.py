@@ -34,3 +34,30 @@ def test_writing_rules_contains_personality_section():
 
     assert "vary" in WRITING_RULES.lower()
     assert "opinion" in WRITING_RULES.lower() or "personality" in WRITING_RULES.lower()
+
+
+def test_batch_humanize_system_is_string():
+    from prompts.humanizer import BATCH_HUMANIZE_SYSTEM
+
+    assert isinstance(BATCH_HUMANIZE_SYSTEM, str)
+    assert len(BATCH_HUMANIZE_SYSTEM) > 10
+
+
+def test_batch_humanize_has_comments_json_placeholder():
+    from prompts.humanizer import BATCH_HUMANIZE
+
+    assert "{comments_json}" in BATCH_HUMANIZE
+
+
+def test_batch_humanize_includes_writing_rules():
+    from prompts.humanizer import BATCH_HUMANIZE, WRITING_RULES
+
+    # The batch prompt should contain the full rules
+    # (either directly or by reference — check a key phrase)
+    assert "delve" in BATCH_HUMANIZE.lower() or WRITING_RULES[:50] in BATCH_HUMANIZE
+
+
+def test_batch_humanize_specifies_json_output():
+    from prompts.humanizer import BATCH_HUMANIZE
+
+    assert "json" in BATCH_HUMANIZE.lower()
