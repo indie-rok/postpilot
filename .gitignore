@@ -41,6 +41,7 @@ Thumbs.db
 
 # Superpowers internals
 .superpowers/
+docs/superpowers
 
 # Node (if any)
 node_modules/

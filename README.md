@@ -3,17 +3,20 @@
 **From code to reddit**
 **Test your Reddit launch post before you post it.**
 
-Post Pilot simulates a Reddit community reacting to your launch post. It reads your project (features, target personas, problem/solution) and it generates a simulation where AI Personas   (generated with subreddit data) read your post and respond the way real Redditors would. You get feedback, a scorecard, and a rewritten version of your post before anyone real sees it.
+Post Pilot simulates a Reddit community reacting to your launch post. It reads your project (features, target personas, problem/solution) and it generates a simulation where AI Personas (generated with subreddit data) read your post and respond the way real Redditors would. You get feedback, a scorecard, and a rewritten version of your post before anyone real sees it.
 
 [![npm version](https://img.shields.io/npm/v/post-pilot)](https://www.npmjs.com/package/post-pilot)
 ![Status: Beta](https://img.shields.io/badge/status-beta-orange)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/indie-rok/postpilot/blob/main/LICENSE)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
 
-<!-- Replace with your YouTube demo video -->
-<!-- [![Post Pilot Demo](docs/assets/video-thumbnail.png)](https://youtube.com/watch?v=YOUR_VIDEO_ID) -->
-
-![Post Pilot demo](docs/assets/demo.gif)
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=mS9qVPMdv6I">
+    <img src="https://img.youtube.com/vi/mS9qVPMdv6I/maxresdefault.jpg" alt="Post Pilot Demo" width="720">
+  </a>
+  <br>
+  <em>Watch the demo</em>
+</p>
 
 ---
 
